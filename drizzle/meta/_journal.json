@@ -1,0 +1,20 @@
+{
+  "version": "7",
+  "dialect": "mysql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "5",
+      "when": 1771357402688,
+      "tag": "0000_jittery_mastermind",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1771357439777,
+      "tag": "0001_known_living_tribunal",
+      "breakpoints": true
+    }
+  ]
+}

@@ -19,7 +19,9 @@ import {
   Briefcase,
   UserCircle,
   ClipboardList,
+  Users,
 } from 'lucide-react';
+import { useAuth } from '@/_core/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { useData } from '@/contexts/DataContext';
 
@@ -35,10 +37,16 @@ const navItems = [
   { path: '/configuracoes', label: 'Configurações', icon: Settings },
 ];
 
+const adminNavItems = [
+  { path: '/admin/leads', label: 'Leads', icon: Users },
+];
+
 export default function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { isRegistered } = useData();
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
 
   return (
     <div className="min-h-screen flex bg-background">
@@ -104,6 +112,40 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               </Link>
             );
           })}
+          {/* Admin section */}
+          {isAdmin && (
+            <>
+              <div className="mt-4 mb-2 px-3">
+                <p className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-widest">Admin</p>
+              </div>
+              {adminNavItems.map((item) => {
+                const isActive = location === item.path || location.startsWith(item.path);
+                const Icon = item.icon;
+                return (
+                  <Link key={item.path} href={item.path} onClick={() => setSidebarOpen(false)}>
+                    <motion.div
+                      whileHover={{ x: 4 }}
+                      whileTap={{ scale: 0.98 }}
+                      className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
+                        isActive
+                          ? 'bg-primary/10 text-primary'
+                          : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                      }`}
+                    >
+                      <Icon className="w-[18px] h-[18px]" />
+                      <span>{item.label}</span>
+                      {isActive && (
+                        <motion.div
+                          layoutId="activeIndicator"
+                          className="ml-auto w-1.5 h-1.5 rounded-full bg-primary"
+                        />
+                      )}
+                    </motion.div>
+                  </Link>
+                );
+              })}
+            </>
+          )}
         </nav>
 
         {/* Footer */}

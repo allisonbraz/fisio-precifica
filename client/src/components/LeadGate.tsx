@@ -3,6 +3,7 @@
  * Design: Warm Professional — Organic Modernism
  * Modal that requires name, whatsapp and email before allowing edits
  * Users can VIEW the app but cannot EDIT until registered
+ * Sends lead data to the server for mailing list capture
  */
 
 import { useState } from 'react';
@@ -12,6 +13,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useData } from '@/contexts/DataContext';
+import { trpc } from '@/lib/trpc';
+import { toast } from 'sonner';
 
 export default function LeadGate() {
   const { isRegistered, registerLead } = useData();
@@ -20,6 +23,9 @@ export default function LeadGate() {
   const [whatsapp, setWhatsapp] = useState('');
   const [email, setEmail] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [submitting, setSubmitting] = useState(false);
+
+  const registerMutation = trpc.leads.register.useMutation();
 
   if (isRegistered) return null;
 
@@ -40,16 +46,36 @@ export default function LeadGate() {
     return Object.keys(errs).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validate()) return;
-    registerLead({
+
+    setSubmitting(true);
+
+    const leadData = {
       nome: nome.trim(),
       whatsapp: whatsapp.trim(),
       email: email.trim().toLowerCase(),
       registeredAt: new Date().toISOString(),
-    });
+    };
+
+    // Save to server (fire and forget - don't block registration on server errors)
+    try {
+      await registerMutation.mutateAsync({
+        nome: leadData.nome,
+        email: leadData.email,
+        whatsapp: leadData.whatsapp,
+      });
+    } catch (err) {
+      // Server save failed, but we still allow local registration
+      console.warn('Failed to save lead to server:', err);
+    }
+
+    // Always save locally and register
+    registerLead(leadData);
     setShowModal(false);
+    setSubmitting(false);
+    toast.success(`Bem-vindo(a), ${leadData.nome}! Agora você pode editar e calcular.`);
   };
 
   return (
@@ -127,6 +153,7 @@ export default function LeadGate() {
                     onChange={e => setNome(e.target.value)}
                     placeholder="Seu nome"
                     className="rounded-xl"
+                    disabled={submitting}
                   />
                   {errors.nome && <p className="text-xs text-destructive">{errors.nome}</p>}
                 </div>
@@ -143,6 +170,7 @@ export default function LeadGate() {
                     placeholder="(00) 00000-0000"
                     className="rounded-xl"
                     maxLength={16}
+                    disabled={submitting}
                   />
                   {errors.whatsapp && <p className="text-xs text-destructive">{errors.whatsapp}</p>}
                 </div>
@@ -159,16 +187,18 @@ export default function LeadGate() {
                     onChange={e => setEmail(e.target.value)}
                     placeholder="seu@email.com"
                     className="rounded-xl"
+                    disabled={submitting}
                   />
                   {errors.email && <p className="text-xs text-destructive">{errors.email}</p>}
                 </div>
 
                 <Button
                   type="submit"
+                  disabled={submitting}
                   className="w-full rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-semibold py-5"
                 >
-                  Acessar calculadora
-                  <ArrowRight className="w-4 h-4 ml-2" />
+                  {submitting ? 'Cadastrando...' : 'Acessar calculadora'}
+                  {!submitting && <ArrowRight className="w-4 h-4 ml-2" />}
                 </Button>
 
                 <p className="text-[11px] text-muted-foreground text-center leading-relaxed">

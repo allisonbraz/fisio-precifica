@@ -158,6 +158,26 @@ const defaultPerfil: PerfilProfissional = {
 
 // ===== LOAD / SAVE =====
 
+// Map of old names to new names for migration
+const CUSTOS_FIXOS_NAME_MAP: Record<string, string> = {
+  'CREFITO': 'CREFITO ou outro conselho de classe',
+  'CREFITO (anuidade)': 'CREFITO ou outro conselho de classe',
+  'Conselho de classe': 'CREFITO ou outro conselho de classe',
+};
+
+/** Match a stored custo to its default by normalized name similarity */
+function findDefaultByName(nome: string, defaults: { nome: string; descricao: string; frequencia: FrequenciaCusto }[]): { nome: string; descricao: string; frequencia: FrequenciaCusto } | undefined {
+  const normalized = nome.toLowerCase().trim();
+  // Exact match first
+  const exact = defaults.find(d => d.nome.toLowerCase().trim() === normalized);
+  if (exact) return exact;
+  // Partial match (stored name is contained in default name or vice-versa)
+  const partial = defaults.find(d => 
+    d.nome.toLowerCase().includes(normalized) || normalized.includes(d.nome.toLowerCase())
+  );
+  return partial;
+}
+
 export function loadData(): DadosPrecificacao {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
@@ -168,20 +188,49 @@ export function loadData(): DadosPrecificacao {
         parsed.planosTratamento = parsed.pacotes;
         delete parsed.pacotes;
       }
-      // Migrate old custos without frequencia/descricao
+      // Migrate custos fixos: update names, add descriptions, fix frequencies
       if (parsed.custosFixos) {
-        parsed.custosFixos = parsed.custosFixos.map((c: any, i: number) => ({
-          ...c,
-          frequencia: c.frequencia || (defaultCustosFixos[i]?.frequencia || 'mensal'),
-          descricao: c.descricao || (defaultCustosFixos.find(d => d.id === c.id)?.descricao || ''),
-        }));
+        parsed.custosFixos = parsed.custosFixos.map((c: any) => {
+          // Check if name needs to be migrated
+          const mappedName = CUSTOS_FIXOS_NAME_MAP[c.nome] || c.nome;
+          // Find matching default by ID first, then by name
+          const defaultById = defaultCustosFixos.find(d => d.id === c.id);
+          const defaultByName = findDefaultByName(mappedName, defaultCustosFixos);
+          const matched = defaultById || defaultByName;
+          return {
+            ...c,
+            nome: matched?.nome || mappedName,
+            frequencia: c.frequencia || (matched?.frequencia || 'mensal'),
+            descricao: matched?.descricao || c.descricao || '',
+          };
+        });
+        // Add any missing default custos fixos (e.g., Associação profissional)
+        const existingNames = new Set(parsed.custosFixos.map((c: any) => c.nome.toLowerCase()));
+        for (const def of defaultCustosFixos) {
+          if (!existingNames.has(def.nome.toLowerCase())) {
+            parsed.custosFixos.push({ ...def });
+          }
+        }
       }
+      // Migrate custos variáveis
       if (parsed.custosVariaveis) {
-        parsed.custosVariaveis = parsed.custosVariaveis.map((c: any, i: number) => ({
-          ...c,
-          frequencia: c.frequencia || 'mensal',
-          descricao: c.descricao || (defaultCustosVariaveis.find(d => d.id === c.id)?.descricao || ''),
-        }));
+        parsed.custosVariaveis = parsed.custosVariaveis.map((c: any) => {
+          const defaultById = defaultCustosVariaveis.find(d => d.id === c.id);
+          const defaultByName = findDefaultByName(c.nome, defaultCustosVariaveis);
+          const matched = defaultById || defaultByName;
+          return {
+            ...c,
+            frequencia: c.frequencia || 'mensal',
+            descricao: matched?.descricao || c.descricao || '',
+          };
+        });
+        // Add any missing default custos variáveis
+        const existingNames = new Set(parsed.custosVariaveis.map((c: any) => c.nome.toLowerCase()));
+        for (const def of defaultCustosVariaveis) {
+          if (!existingNames.has(def.nome.toLowerCase())) {
+            parsed.custosVariaveis.push({ ...def });
+          }
+        }
       }
       return { ...defaultData, ...parsed };
     }

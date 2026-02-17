@@ -16,6 +16,7 @@ import Indicadores from "./pages/Indicadores";
 import Relatorios from "./pages/Relatorios";
 import Configuracoes from "./pages/Configuracoes";
 import Perfil from "./pages/Perfil";
+import Leads from "./pages/Leads";
 
 function Router() {
   return (
@@ -30,6 +31,7 @@ function Router() {
         <Route path="/relatorios" component={Relatorios} />
         <Route path="/configuracoes" component={Configuracoes} />
         <Route path="/perfil" component={Perfil} />
+        <Route path="/admin/leads" component={Leads} />
         <Route path="/404" component={NotFound} />
         <Route component={NotFound} />
       </Switch>
