@@ -9,25 +9,26 @@ import { Link, useLocation } from 'wouter';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Calculator,
-  BarChart3,
   DollarSign,
-  Package,
   TrendingUp,
   FileText,
   Settings,
   Menu,
-  X,
   Home,
   Target,
-  PieChart,
+  Briefcase,
+  UserCircle,
+  ClipboardList,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useData } from '@/contexts/DataContext';
 
 const navItems = [
   { path: '/', label: 'Início', icon: Home },
+  { path: '/perfil', label: 'Meu Perfil', icon: UserCircle },
   { path: '/custos', label: 'Custos', icon: DollarSign },
   { path: '/precificacao', label: 'Precificação', icon: Calculator },
-  { path: '/servicos', label: 'Serviços', icon: Package },
+  { path: '/servicos', label: 'Serviços', icon: Briefcase },
   { path: '/simulacao', label: 'Simulação', icon: TrendingUp },
   { path: '/indicadores', label: 'Indicadores', icon: Target },
   { path: '/relatorios', label: 'Relatórios', icon: FileText },
@@ -37,6 +38,7 @@ const navItems = [
 export default function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { isRegistered } = useData();
 
   return (
     <div className="min-h-screen flex bg-background">
@@ -107,7 +109,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         {/* Footer */}
         <div className="p-4 border-t border-border">
           <div className="text-xs text-muted-foreground text-center">
-            <p className="font-medium">FisioPrecifica v1.0</p>
+            <p className="font-medium">FisioPrecifica v2.0</p>
             <p className="mt-0.5 opacity-70">Seus dados ficam salvos localmente</p>
           </div>
         </div>
@@ -136,8 +138,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           </div>
         </header>
 
-        {/* Page Content */}
-        <div className="p-4 sm:p-6 lg:p-8">
+        {/* Page Content - add bottom padding when lead gate banner is visible */}
+        <div className={`p-4 sm:p-6 lg:p-8 ${!isRegistered ? 'pb-24' : ''}`}>
           {children}
         </div>
       </main>

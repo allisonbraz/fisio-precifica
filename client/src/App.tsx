@@ -6,6 +6,7 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { DataProvider } from "./contexts/DataContext";
 import Layout from "./components/Layout";
+import LeadGate from "./components/LeadGate";
 import Home from "./pages/Home";
 import Custos from "./pages/Custos";
 import Precificacao from "./pages/Precificacao";
@@ -14,6 +15,7 @@ import Simulacao from "./pages/Simulacao";
 import Indicadores from "./pages/Indicadores";
 import Relatorios from "./pages/Relatorios";
 import Configuracoes from "./pages/Configuracoes";
+import Perfil from "./pages/Perfil";
 
 function Router() {
   return (
@@ -27,9 +29,11 @@ function Router() {
         <Route path="/indicadores" component={Indicadores} />
         <Route path="/relatorios" component={Relatorios} />
         <Route path="/configuracoes" component={Configuracoes} />
+        <Route path="/perfil" component={Perfil} />
         <Route path="/404" component={NotFound} />
         <Route component={NotFound} />
       </Switch>
+      <LeadGate />
     </Layout>
   );
 }

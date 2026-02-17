@@ -195,7 +195,7 @@ export default function Configuracoes() {
                   Restaurar dados padrão?
                 </AlertDialogTitle>
                 <AlertDialogDescription>
-                  Esta ação irá apagar todos os seus dados atuais (custos, serviços, pacotes e registros mensais) e restaurar os valores iniciais. Esta ação não pode ser desfeita.
+                  Esta ação irá apagar todos os seus dados atuais (custos, serviços, planos de tratamento e registros mensais) e restaurar os valores iniciais. Esta ação não pode ser desfeita.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
@@ -228,7 +228,7 @@ export default function Configuracoes() {
             <li>Gestão completa de custos fixos e variáveis</li>
             <li>Cálculo automático do preço mínimo por sessão</li>
             <li>Diferentes tipos de serviço com preços calculados</li>
-            <li>Pacotes com desconto para fidelização</li>
+            <li>Planos de tratamento com desconto para fidelização</li>
             <li>Simulação de cenários (otimista, realista, pessimista)</li>
             <li>Indicadores financeiros e score de saúde</li>
             <li>Relatórios mensais com gráficos de evolução</li>

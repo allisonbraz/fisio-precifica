@@ -1,7 +1,8 @@
 /**
- * FisioPrecifica Data Context
+ * FisioPrecifica Data Context v2
  * Design: Warm Professional — Organic Modernism
  * Provides global data state management with localStorage persistence
+ * Includes lead gate, professional profile, planos de tratamento
  */
 
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
@@ -10,33 +11,46 @@ import {
   CustoFixo,
   CustoVariavel,
   TipoServico,
-  Pacote,
+  PlanoTratamento,
   RegistroMensal,
+  LeadData,
+  PerfilProfissional,
   loadData,
   saveData,
   resetData,
   generateId,
+  loadLead,
+  saveLead,
+  loadPerfil,
+  savePerfil,
 } from '@/lib/store';
 
 interface DataContextType {
   data: DadosPrecificacao;
+  lead: LeadData | null;
+  perfil: PerfilProfissional;
+  isRegistered: boolean;
+  registerLead: (lead: LeadData) => void;
+  updatePerfil: (updates: Partial<PerfilProfissional>) => void;
   updateCustoFixo: (id: string, updates: Partial<CustoFixo>) => void;
   addCustoFixo: (custo: Omit<CustoFixo, 'id'>) => void;
-  removeCustoFixo: (id: string) => void;
+  zeroCustoFixo: (id: string) => void;
   updateCustoVariavel: (id: string, updates: Partial<CustoVariavel>) => void;
   addCustoVariavel: (custo: Omit<CustoVariavel, 'id'>) => void;
-  removeCustoVariavel: (id: string) => void;
+  zeroCustoVariavel: (id: string) => void;
+  zerarTodosCustos: () => void;
   updateSessoesMeta: (value: number) => void;
   updateMargemLucro: (value: number) => void;
+  updatePrecoDefinido: (value: number) => void;
   updateHorasTrabalho: (value: number) => void;
   updateDiasUteis: (value: number) => void;
   updateSessoesporDia: (value: number) => void;
   addTipoServico: (servico: Omit<TipoServico, 'id'>) => void;
   updateTipoServico: (id: string, updates: Partial<TipoServico>) => void;
   removeTipoServico: (id: string) => void;
-  addPacote: (pacote: Omit<Pacote, 'id'>) => void;
-  updatePacote: (id: string, updates: Partial<Pacote>) => void;
-  removePacote: (id: string) => void;
+  addPlanoTratamento: (plano: Omit<PlanoTratamento, 'id'>) => void;
+  updatePlanoTratamento: (id: string, updates: Partial<PlanoTratamento>) => void;
+  removePlanoTratamento: (id: string) => void;
   addRegistroMensal: (registro: Omit<RegistroMensal, 'id'>) => void;
   updateRegistroMensal: (id: string, updates: Partial<RegistroMensal>) => void;
   removeRegistroMensal: (id: string) => void;
@@ -48,10 +62,27 @@ const DataContext = createContext<DataContextType | undefined>(undefined);
 
 export function DataProvider({ children }: { children: React.ReactNode }) {
   const [data, setData] = useState<DadosPrecificacao>(() => loadData());
+  const [lead, setLead] = useState<LeadData | null>(() => loadLead());
+  const [perfil, setPerfilState] = useState<PerfilProfissional>(() => loadPerfil());
+
+  const isRegistered = lead !== null;
 
   useEffect(() => {
     saveData(data);
   }, [data]);
+
+  const registerLead = useCallback((newLead: LeadData) => {
+    saveLead(newLead);
+    setLead(newLead);
+  }, []);
+
+  const updatePerfil = useCallback((updates: Partial<PerfilProfissional>) => {
+    setPerfilState(prev => {
+      const updated = { ...prev, ...updates };
+      savePerfil(updated);
+      return updated;
+    });
+  }, []);
 
   const updateCustoFixo = useCallback((id: string, updates: Partial<CustoFixo>) => {
     setData(prev => ({
@@ -67,10 +98,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     }));
   }, []);
 
-  const removeCustoFixo = useCallback((id: string) => {
+  const zeroCustoFixo = useCallback((id: string) => {
     setData(prev => ({
       ...prev,
-      custosFixos: prev.custosFixos.filter(c => c.id !== id),
+      custosFixos: prev.custosFixos.map(c => c.id === id ? { ...c, valor: 0 } : c),
     }));
   }, []);
 
@@ -88,10 +119,18 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     }));
   }, []);
 
-  const removeCustoVariavel = useCallback((id: string) => {
+  const zeroCustoVariavel = useCallback((id: string) => {
     setData(prev => ({
       ...prev,
-      custosVariaveis: prev.custosVariaveis.filter(c => c.id !== id),
+      custosVariaveis: prev.custosVariaveis.map(c => c.id === id ? { ...c, valor: 0 } : c),
+    }));
+  }, []);
+
+  const zerarTodosCustos = useCallback(() => {
+    setData(prev => ({
+      ...prev,
+      custosFixos: prev.custosFixos.map(c => ({ ...c, valor: 0 })),
+      custosVariaveis: prev.custosVariaveis.map(c => ({ ...c, valor: 0 })),
     }));
   }, []);
 
@@ -101,6 +140,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   const updateMargemLucro = useCallback((value: number) => {
     setData(prev => ({ ...prev, margemLucro: value }));
+  }, []);
+
+  const updatePrecoDefinido = useCallback((value: number) => {
+    setData(prev => ({ ...prev, precoDefinido: value }));
   }, []);
 
   const updateHorasTrabalho = useCallback((value: number) => {
@@ -136,24 +179,24 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     }));
   }, []);
 
-  const addPacote = useCallback((pacote: Omit<Pacote, 'id'>) => {
+  const addPlanoTratamento = useCallback((plano: Omit<PlanoTratamento, 'id'>) => {
     setData(prev => ({
       ...prev,
-      pacotes: [...prev.pacotes, { ...pacote, id: generateId() }],
+      planosTratamento: [...prev.planosTratamento, { ...plano, id: generateId() }],
     }));
   }, []);
 
-  const updatePacote = useCallback((id: string, updates: Partial<Pacote>) => {
+  const updatePlanoTratamento = useCallback((id: string, updates: Partial<PlanoTratamento>) => {
     setData(prev => ({
       ...prev,
-      pacotes: prev.pacotes.map(p => p.id === id ? { ...p, ...updates } : p),
+      planosTratamento: prev.planosTratamento.map(p => p.id === id ? { ...p, ...updates } : p),
     }));
   }, []);
 
-  const removePacote = useCallback((id: string) => {
+  const removePlanoTratamento = useCallback((id: string) => {
     setData(prev => ({
       ...prev,
-      pacotes: prev.pacotes.filter(p => p.id !== id),
+      planosTratamento: prev.planosTratamento.filter(p => p.id !== id),
     }));
   }, []);
 
@@ -190,23 +233,30 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   return (
     <DataContext.Provider value={{
       data,
+      lead,
+      perfil,
+      isRegistered,
+      registerLead,
+      updatePerfil,
       updateCustoFixo,
       addCustoFixo,
-      removeCustoFixo,
+      zeroCustoFixo,
       updateCustoVariavel,
       addCustoVariavel,
-      removeCustoVariavel,
+      zeroCustoVariavel,
+      zerarTodosCustos,
       updateSessoesMeta,
       updateMargemLucro,
+      updatePrecoDefinido,
       updateHorasTrabalho,
       updateDiasUteis,
       updateSessoesporDia,
       addTipoServico,
       updateTipoServico,
       removeTipoServico,
-      addPacote,
-      updatePacote,
-      removePacote,
+      addPlanoTratamento,
+      updatePlanoTratamento,
+      removePlanoTratamento,
       addRegistroMensal,
       updateRegistroMensal,
       removeRegistroMensal,

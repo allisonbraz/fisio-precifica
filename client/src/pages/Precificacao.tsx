@@ -1,17 +1,17 @@
 /**
- * Precificação Page
+ * Precificação Page v2
  * Design: Warm Professional — Organic Modernism
- * Calculate minimum price per session with visual breakdown
+ * Dual pricing: by margin OR by defined price — both linked
  */
 
-import { useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import {
   Calculator,
-  AlertTriangle,
   CheckCircle2,
   Info,
   TrendingUp,
+  ArrowLeftRight,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Slider } from '@/components/ui/slider';
@@ -21,7 +21,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import PageHeader from '@/components/PageHeader';
-import StatCard from '@/components/StatCard';
+import CurrencyInput from '@/components/CurrencyInput';
 import { useData } from '@/contexts/DataContext';
 import {
   calcularTotalCustosFixos,
@@ -30,6 +30,7 @@ import {
   calcularCustoVariavelPorSessao,
   calcularCustoTotalPorSessao,
   calcularPrecoMinimo,
+  calcularMargemDoPreco,
   calcularPontoEquilibrio,
   calcularValorHora,
   formatarMoeda,
@@ -44,9 +45,21 @@ import {
   ResponsiveContainer,
   Cell,
 } from 'recharts';
+import { toast } from 'sonner';
 
 export default function Precificacao() {
-  const { data, updateSessoesMeta, updateMargemLucro, updateDiasUteis, updateSessoesporDia } = useData();
+  const {
+    data,
+    isRegistered,
+    updateSessoesMeta,
+    updateMargemLucro,
+    updatePrecoDefinido,
+    updateDiasUteis,
+    updateSessoesporDia,
+  } = useData();
+
+  // Track which input the user is currently editing
+  const [activeMode, setActiveMode] = useState<'margem' | 'preco'>('margem');
 
   const metrics = useMemo(() => {
     const custoFixoTotal = calcularTotalCustosFixos(data.custosFixos);
@@ -70,17 +83,39 @@ export default function Precificacao() {
     };
   }, [data]);
 
+  // When user changes margin → update precoDefinido
+  const handleMargemChange = useCallback((margem: number) => {
+    if (!isRegistered) { toast.error('Cadastre-se para editar'); return; }
+    setActiveMode('margem');
+    updateMargemLucro(margem / 100);
+    // Auto-calc the price from margin
+    const custoTotal = calcularCustoTotalPorSessao(data);
+    const newPrice = custoTotal * (1 + margem / 100);
+    updatePrecoDefinido(Math.round(newPrice * 100) / 100);
+  }, [data, isRegistered, updateMargemLucro, updatePrecoDefinido]);
+
+  // When user changes price → update margem
+  const handlePrecoChange = useCallback((preco: number) => {
+    if (!isRegistered) { toast.error('Cadastre-se para editar'); return; }
+    setActiveMode('preco');
+    updatePrecoDefinido(preco);
+    const newMargem = calcularMargemDoPreco(data, preco);
+    updateMargemLucro(Math.max(0, Math.min(newMargem, 10))); // cap at 1000%
+  }, [data, isRegistered, updatePrecoDefinido, updateMargemLucro]);
+
   const breakdownData = useMemo(() => [
     { name: 'Custo Fixo', valor: metrics.custoFixoSessao, fill: '#b5725d' },
     { name: 'Custo Variável', valor: metrics.custoVarSessao, fill: '#d4a853' },
-    { name: 'Margem de Lucro', valor: metrics.precoMinimo - metrics.custoTotalSessao, fill: '#7c9a82' },
+    { name: 'Margem de Lucro', valor: Math.max(0, metrics.precoMinimo - metrics.custoTotalSessao), fill: '#7c9a82' },
   ], [metrics]);
+
+  const isAbaixoCusto = data.precoDefinido > 0 && data.precoDefinido < metrics.custoTotalSessao;
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Cálculo de Precificação"
-        description="Defina o preço mínimo ideal para suas sessões"
+        description="Defina o preço ideal: ajuste pela margem de lucro ou defina o preço diretamente"
         icon={Calculator}
       />
 
@@ -110,10 +145,14 @@ export default function Precificacao() {
               <Input
                 type="number"
                 value={data.diasUteis}
-                onChange={(e) => updateDiasUteis(Math.max(1, parseInt(e.target.value) || 0))}
+                onChange={(e) => {
+                  if (!isRegistered) { toast.error('Cadastre-se para editar'); return; }
+                  updateDiasUteis(Math.max(1, parseInt(e.target.value) || 0));
+                }}
                 className="rounded-xl font-mono"
                 min={1}
                 max={31}
+                disabled={!isRegistered}
               />
             </div>
 
@@ -133,10 +172,14 @@ export default function Precificacao() {
               <Input
                 type="number"
                 value={data.sessoesporDia}
-                onChange={(e) => updateSessoesporDia(Math.max(1, parseInt(e.target.value) || 0))}
+                onChange={(e) => {
+                  if (!isRegistered) { toast.error('Cadastre-se para editar'); return; }
+                  updateSessoesporDia(Math.max(1, parseInt(e.target.value) || 0));
+                }}
                 className="rounded-xl font-mono"
                 min={1}
                 max={20}
+                disabled={!isRegistered}
               />
             </div>
 
@@ -145,62 +188,84 @@ export default function Precificacao() {
               <div className="flex items-center justify-between mb-1.5">
                 <label className="text-sm font-medium text-foreground flex items-center gap-1.5">
                   Meta de sessões/mês
-                  <Tooltip>
-                    <TooltipTrigger>
-                      <Info className="w-3.5 h-3.5 text-muted-foreground" />
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p className="max-w-[200px] text-xs">
-                        Capacidade máxima: {data.diasUteis * data.sessoesporDia} sessões ({data.diasUteis} dias × {data.sessoesporDia} sessões)
-                      </p>
-                    </TooltipContent>
-                  </Tooltip>
                 </label>
                 <span className="text-sm font-mono font-medium text-primary">{data.sessoesMeta}</span>
               </div>
               <Slider
                 value={[data.sessoesMeta]}
-                onValueChange={([v]) => updateSessoesMeta(v)}
+                onValueChange={([v]) => {
+                  if (!isRegistered) { toast.error('Cadastre-se para editar'); return; }
+                  updateSessoesMeta(v);
+                }}
                 min={1}
                 max={Math.max(data.diasUteis * data.sessoesporDia, data.sessoesMeta)}
                 step={1}
                 className="my-3"
+                disabled={!isRegistered}
               />
               <div className="flex justify-between text-xs text-muted-foreground">
                 <span>1</span>
                 <span>{data.diasUteis * data.sessoesporDia} (máx)</span>
               </div>
             </div>
+          </motion.div>
+
+          {/* Dual Pricing Mode */}
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.1 }}
+            className="bg-card rounded-2xl border border-border p-5 space-y-5"
+          >
+            <div className="flex items-center gap-2">
+              <ArrowLeftRight className="w-4 h-4 text-primary" />
+              <h3 className="font-heading font-semibold text-foreground">Modo de Precificação</h3>
+            </div>
+
+            <p className="text-xs text-muted-foreground">
+              Ajuste a margem de lucro <strong>ou</strong> defina o preço diretamente. Os dois campos estão vinculados e se atualizam automaticamente.
+            </p>
 
             {/* Margem de lucro */}
-            <div>
+            <div className={`p-3 rounded-xl border transition-colors ${activeMode === 'margem' ? 'border-primary/30 bg-primary/5' : 'border-border'}`}>
               <div className="flex items-center justify-between mb-1.5">
                 <label className="text-sm font-medium text-foreground flex items-center gap-1.5">
                   Margem de lucro
-                  <Tooltip>
-                    <TooltipTrigger>
-                      <Info className="w-3.5 h-3.5 text-muted-foreground" />
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p className="max-w-[200px] text-xs">Recomendado: 20% a 40% sobre o custo</p>
-                    </TooltipContent>
-                  </Tooltip>
                 </label>
                 <span className="text-sm font-mono font-medium text-primary">{(data.margemLucro * 100).toFixed(0)}%</span>
               </div>
               <Slider
                 value={[data.margemLucro * 100]}
-                onValueChange={([v]) => updateMargemLucro(v / 100)}
+                onValueChange={([v]) => handleMargemChange(v)}
                 min={0}
-                max={100}
+                max={200}
                 step={5}
                 className="my-3"
+                disabled={!isRegistered}
               />
               <div className="flex justify-between text-xs text-muted-foreground">
                 <span>0%</span>
                 <span className="text-sage-dark font-medium">20-40% recomendado</span>
-                <span>100%</span>
+                <span>200%</span>
               </div>
+            </div>
+
+            {/* Preço definido */}
+            <div className={`p-3 rounded-xl border transition-colors ${activeMode === 'preco' ? 'border-primary/30 bg-primary/5' : 'border-border'}`}>
+              <label className="text-sm font-medium text-foreground mb-1.5 block">
+                Ou defina o preço diretamente
+              </label>
+              <CurrencyInput
+                value={data.precoDefinido || metrics.precoMinimo}
+                onChange={handlePrecoChange}
+                disabled={!isRegistered}
+              />
+              {isAbaixoCusto && (
+                <p className="text-xs text-destructive mt-1.5 flex items-center gap-1">
+                  <Info className="w-3 h-3" />
+                  Preço abaixo do custo por sessão ({formatarMoeda(metrics.custoTotalSessao)})
+                </p>
+              )}
             </div>
           </motion.div>
         </div>
@@ -213,16 +278,16 @@ export default function Precificacao() {
             animate={{ opacity: 1, scale: 1 }}
             className="bg-gradient-to-br from-primary/5 via-card to-sage-light/10 rounded-2xl border border-border p-6 text-center"
           >
-            <p className="text-sm text-muted-foreground font-medium">Preço Mínimo por Sessão</p>
+            <p className="text-sm text-muted-foreground font-medium">Preço por Sessão</p>
             <p className="text-5xl font-heading font-bold text-primary mt-2 font-mono">
               {formatarMoeda(metrics.precoMinimo)}
             </p>
             <p className="text-sm text-muted-foreground mt-2">
-              Para não ter prejuízo com margem de {(data.margemLucro * 100).toFixed(0)}%
+              Com margem de {(data.margemLucro * 100).toFixed(0)}% sobre o custo de {formatarMoeda(metrics.custoTotalSessao)}
             </p>
             <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-sage/10 text-sage-dark text-sm font-medium">
               <CheckCircle2 className="w-4 h-4" />
-              Nunca cobre abaixo deste valor
+              Nunca cobre abaixo de {formatarMoeda(metrics.custoTotalSessao)} (seu custo)
             </div>
           </motion.div>
 
@@ -240,7 +305,7 @@ export default function Precificacao() {
             </div>
             <div className="bg-card rounded-xl border border-border p-4">
               <p className="text-xs text-muted-foreground">Lucro/sessão</p>
-              <p className="text-lg font-mono font-bold text-sage-dark mt-1">{formatarMoeda(metrics.precoMinimo - metrics.custoTotalSessao)}</p>
+              <p className="text-lg font-mono font-bold text-sage-dark mt-1">{formatarMoeda(Math.max(0, metrics.precoMinimo - metrics.custoTotalSessao))}</p>
               <p className="text-xs text-muted-foreground mt-1">Margem de {(data.margemLucro * 100).toFixed(0)}%</p>
             </div>
           </div>

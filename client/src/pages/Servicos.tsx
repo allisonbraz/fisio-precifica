@@ -1,20 +1,20 @@
 /**
- * Serviços Page
+ * Serviços Page v2
  * Design: Warm Professional — Organic Modernism
- * Manage service types and packages with pricing
+ * Manage service types and treatment plans (planos de tratamento) with pricing
+ * Replaced "pacotes" with "planos de tratamento"
  */
 
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Package,
+  Briefcase,
   Plus,
   Trash2,
   Edit3,
   Clock,
   Tag,
-  Gift,
-  Info,
+  ClipboardList,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -38,27 +38,29 @@ import { useData } from '@/contexts/DataContext';
 import {
   calcularPrecoMinimo,
   calcularPrecoServico,
-  calcularPrecoPacote,
+  calcularPrecoPlano,
   formatarMoeda,
   TipoServico,
-  Pacote,
+  PlanoTratamento,
 } from '@/lib/store';
+import { toast } from 'sonner';
 
 export default function Servicos() {
   const {
     data,
+    isRegistered,
     addTipoServico,
     updateTipoServico,
     removeTipoServico,
-    addPacote,
-    updatePacote,
-    removePacote,
+    addPlanoTratamento,
+    updatePlanoTratamento,
+    removePlanoTratamento,
   } = useData();
 
   const [servicoDialog, setServicoDialog] = useState(false);
-  const [pacoteDialog, setPacoteDialog] = useState(false);
+  const [planoDialog, setPlanoDialog] = useState(false);
   const [editingServico, setEditingServico] = useState<TipoServico | null>(null);
-  const [editingPacote, setEditingPacote] = useState<Pacote | null>(null);
+  const [editingPlano, setEditingPlano] = useState<PlanoTratamento | null>(null);
 
   // Service form state
   const [sNome, setSNome] = useState('');
@@ -67,7 +69,7 @@ export default function Servicos() {
   const [sMultiplicador, setSMultiplicador] = useState(1);
   const [sDescricao, setSDescricao] = useState('');
 
-  // Package form state
+  // Treatment plan form state
   const [pNome, setPNome] = useState('');
   const [pServicoId, setPServicoId] = useState('');
   const [pQtd, setPQtd] = useState(10);
@@ -76,23 +78,33 @@ export default function Servicos() {
 
   const precoBase = calcularPrecoMinimo(data);
 
-  const openServicoDialog = (servico?: TipoServico) => {
-    if (servico) {
-      setEditingServico(servico);
-      setSNome(servico.nome);
-      setSDuracao(servico.duracaoMinutos);
-      setSCustoAdicional(servico.custoAdicional);
-      setSMultiplicador(servico.multiplicadorPreco);
-      setSDescricao(servico.descricao);
-    } else {
-      setEditingServico(null);
-      setSNome('');
-      setSDuracao(50);
-      setSCustoAdicional(0);
-      setSMultiplicador(1);
-      setSDescricao('');
+  const guardEdit = (fn: () => void) => {
+    if (!isRegistered) {
+      toast.error('Cadastre-se para editar');
+      return;
     }
-    setServicoDialog(true);
+    fn();
+  };
+
+  const openServicoDialog = (servico?: TipoServico) => {
+    guardEdit(() => {
+      if (servico) {
+        setEditingServico(servico);
+        setSNome(servico.nome);
+        setSDuracao(servico.duracaoMinutos);
+        setSCustoAdicional(servico.custoAdicional);
+        setSMultiplicador(servico.multiplicadorPreco);
+        setSDescricao(servico.descricao);
+      } else {
+        setEditingServico(null);
+        setSNome('');
+        setSDuracao(50);
+        setSCustoAdicional(0);
+        setSMultiplicador(1);
+        setSDescricao('');
+      }
+      setServicoDialog(true);
+    });
   };
 
   const saveServico = () => {
@@ -110,50 +122,54 @@ export default function Servicos() {
       addTipoServico(servicoData);
     }
     setServicoDialog(false);
+    toast.success(editingServico ? 'Serviço atualizado!' : 'Serviço criado!');
   };
 
-  const openPacoteDialog = (pacote?: Pacote) => {
-    if (pacote) {
-      setEditingPacote(pacote);
-      setPNome(pacote.nome);
-      setPServicoId(pacote.tipoServicoId);
-      setPQtd(pacote.quantidadeSessoes);
-      setPDesconto(pacote.descontoPercentual);
-      setPValidade(pacote.validade);
-    } else {
-      setEditingPacote(null);
-      setPNome('');
-      setPServicoId(data.tiposServico[0]?.id || '');
-      setPQtd(10);
-      setPDesconto(10);
-      setPValidade(90);
-    }
-    setPacoteDialog(true);
+  const openPlanoDialog = (plano?: PlanoTratamento) => {
+    guardEdit(() => {
+      if (plano) {
+        setEditingPlano(plano);
+        setPNome(plano.nome);
+        setPServicoId(plano.tipoServicoId);
+        setPQtd(plano.quantidadeSessoes);
+        setPDesconto(plano.descontoPercentual);
+        setPValidade(plano.validade);
+      } else {
+        setEditingPlano(null);
+        setPNome('');
+        setPServicoId(data.tiposServico[0]?.id || '');
+        setPQtd(10);
+        setPDesconto(10);
+        setPValidade(90);
+      }
+      setPlanoDialog(true);
+    });
   };
 
-  const savePacote = () => {
+  const savePlano = () => {
     if (!pNome.trim() || !pServicoId) return;
-    const pacoteData = {
+    const planoData = {
       nome: pNome,
       tipoServicoId: pServicoId,
       quantidadeSessoes: pQtd,
       descontoPercentual: pDesconto,
       validade: pValidade,
     };
-    if (editingPacote) {
-      updatePacote(editingPacote.id, pacoteData);
+    if (editingPlano) {
+      updatePlanoTratamento(editingPlano.id, planoData);
     } else {
-      addPacote(pacoteData);
+      addPlanoTratamento(planoData);
     }
-    setPacoteDialog(false);
+    setPlanoDialog(false);
+    toast.success(editingPlano ? 'Plano atualizado!' : 'Plano criado!');
   };
 
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Serviços e Pacotes"
-        description="Configure diferentes tipos de serviço e pacotes com desconto"
-        icon={Package}
+        title="Serviços e Planos de Tratamento"
+        description="Configure tipos de serviço e planos de tratamento com desconto para fidelizar pacientes"
+        icon={Briefcase}
       />
 
       <Tabs defaultValue="servicos" className="space-y-4">
@@ -161,8 +177,8 @@ export default function Servicos() {
           <TabsTrigger value="servicos" className="rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">
             Tipos de Serviço ({data.tiposServico.length})
           </TabsTrigger>
-          <TabsTrigger value="pacotes" className="rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">
-            Pacotes ({data.pacotes.length})
+          <TabsTrigger value="planos" className="rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">
+            Planos de Tratamento ({data.planosTratamento.length})
           </TabsTrigger>
         </TabsList>
 
@@ -172,7 +188,7 @@ export default function Servicos() {
             <p className="text-sm text-muted-foreground">
               Preço base: <span className="font-mono font-medium text-foreground">{formatarMoeda(precoBase)}</span> (sessão padrão)
             </p>
-            <Button size="sm" variant="outline" className="rounded-xl gap-1.5" onClick={() => openServicoDialog()}>
+            <Button size="sm" variant="outline" className="rounded-xl gap-1.5" onClick={() => openServicoDialog()} disabled={!isRegistered}>
               <Plus className="w-4 h-4" /> Novo Serviço
             </Button>
           </div>
@@ -199,7 +215,7 @@ export default function Servicos() {
                         <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg" onClick={() => openServicoDialog(servico)}>
                           <Edit3 className="w-3.5 h-3.5" />
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg text-muted-foreground hover:text-destructive" onClick={() => removeTipoServico(servico.id)}>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg text-muted-foreground hover:text-destructive" onClick={() => { guardEdit(() => removeTipoServico(servico.id)); }}>
                           <Trash2 className="w-3.5 h-3.5" />
                         </Button>
                       </div>
@@ -230,45 +246,45 @@ export default function Servicos() {
           </div>
         </TabsContent>
 
-        {/* Packages Tab */}
-        <TabsContent value="pacotes" className="space-y-4">
+        {/* Treatment Plans Tab */}
+        <TabsContent value="planos" className="space-y-4">
           <div className="flex justify-between items-center">
             <p className="text-sm text-muted-foreground">
-              Crie pacotes com desconto para fidelizar pacientes
+              Crie planos de tratamento com desconto para fidelizar pacientes
             </p>
-            <Button size="sm" variant="outline" className="rounded-xl gap-1.5" onClick={() => openPacoteDialog()}>
-              <Plus className="w-4 h-4" /> Novo Pacote
+            <Button size="sm" variant="outline" className="rounded-xl gap-1.5" onClick={() => openPlanoDialog()} disabled={!isRegistered}>
+              <Plus className="w-4 h-4" /> Novo Plano
             </Button>
           </div>
 
-          {data.pacotes.length === 0 ? (
+          {data.planosTratamento.length === 0 ? (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               className="bg-card rounded-2xl border border-dashed border-border p-10 text-center"
             >
-              <Gift className="w-12 h-12 text-muted-foreground/40 mx-auto mb-3" />
-              <h4 className="font-heading font-semibold text-foreground">Nenhum pacote criado</h4>
+              <ClipboardList className="w-12 h-12 text-muted-foreground/40 mx-auto mb-3" />
+              <h4 className="font-heading font-semibold text-foreground">Nenhum plano de tratamento criado</h4>
               <p className="text-sm text-muted-foreground mt-1 max-w-sm mx-auto">
-                Pacotes com desconto são ótimos para fidelizar pacientes e garantir receita recorrente.
+                Planos de tratamento com desconto são ótimos para fidelizar pacientes e garantir receita recorrente.
               </p>
-              <Button variant="outline" className="mt-4 rounded-xl gap-1.5" onClick={() => openPacoteDialog()}>
-                <Plus className="w-4 h-4" /> Criar primeiro pacote
+              <Button variant="outline" className="mt-4 rounded-xl gap-1.5" onClick={() => openPlanoDialog()} disabled={!isRegistered}>
+                <Plus className="w-4 h-4" /> Criar primeiro plano
               </Button>
             </motion.div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               <AnimatePresence>
-                {data.pacotes.map((pacote) => {
-                  const servico = data.tiposServico.find(s => s.id === pacote.tipoServicoId);
+                {data.planosTratamento.map((plano) => {
+                  const servico = data.tiposServico.find(s => s.id === plano.tipoServicoId);
                   const precoUnitario = servico ? calcularPrecoServico(data, servico) : precoBase;
-                  const precoPacote = calcularPrecoPacote(precoUnitario, pacote);
-                  const precoSemDesconto = precoUnitario * pacote.quantidadeSessoes;
-                  const economia = precoSemDesconto - precoPacote;
+                  const precoPlano = calcularPrecoPlano(precoUnitario, plano);
+                  const precoSemDesconto = precoUnitario * plano.quantidadeSessoes;
+                  const economia = precoSemDesconto - precoPlano;
 
                   return (
                     <motion.div
-                      key={pacote.id}
+                      key={plano.id}
                       initial={{ opacity: 0, scale: 0.95 }}
                       animate={{ opacity: 1, scale: 1 }}
                       exit={{ opacity: 0, scale: 0.95 }}
@@ -276,12 +292,12 @@ export default function Servicos() {
                       className="bg-card rounded-2xl border border-border p-5 space-y-3 relative overflow-hidden"
                     >
                       <div className="absolute top-0 right-0 bg-sage text-white text-xs font-bold px-3 py-1 rounded-bl-xl">
-                        -{pacote.descontoPercentual}%
+                        -{plano.descontoPercentual}%
                       </div>
 
                       <div className="flex items-start justify-between pr-12">
                         <div>
-                          <h4 className="font-heading font-semibold text-foreground">{pacote.nome}</h4>
+                          <h4 className="font-heading font-semibold text-foreground">{plano.nome}</h4>
                           <p className="text-xs text-muted-foreground mt-0.5">
                             {servico?.nome || 'Serviço não encontrado'}
                           </p>
@@ -289,8 +305,8 @@ export default function Servicos() {
                       </div>
 
                       <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                        <span>{pacote.quantidadeSessoes} sessões</span>
-                        <span>Validade: {pacote.validade} dias</span>
+                        <span>{plano.quantidadeSessoes} sessões</span>
+                        <span>Validade: {plano.validade} dias</span>
                       </div>
 
                       <div className="pt-2 border-t border-border/50 space-y-1">
@@ -300,7 +316,7 @@ export default function Servicos() {
                         </div>
                         <div className="flex justify-between">
                           <span className="text-xs text-muted-foreground">Com desconto:</span>
-                          <span className="text-xl font-mono font-bold text-primary">{formatarMoeda(precoPacote)}</span>
+                          <span className="text-xl font-mono font-bold text-primary">{formatarMoeda(precoPlano)}</span>
                         </div>
                         <div className="flex justify-between text-xs">
                           <span className="text-sage-dark font-medium">Economia do paciente:</span>
@@ -308,15 +324,15 @@ export default function Servicos() {
                         </div>
                         <div className="flex justify-between text-xs">
                           <span className="text-muted-foreground">Preço unitário:</span>
-                          <span className="font-mono">{formatarMoeda(precoPacote / pacote.quantidadeSessoes)}</span>
+                          <span className="font-mono">{formatarMoeda(precoPlano / plano.quantidadeSessoes)}</span>
                         </div>
                       </div>
 
                       <div className="flex gap-1 pt-1">
-                        <Button variant="ghost" size="sm" className="flex-1 rounded-lg text-xs" onClick={() => openPacoteDialog(pacote)}>
+                        <Button variant="ghost" size="sm" className="flex-1 rounded-lg text-xs" onClick={() => openPlanoDialog(plano)}>
                           <Edit3 className="w-3 h-3 mr-1" /> Editar
                         </Button>
-                        <Button variant="ghost" size="sm" className="rounded-lg text-xs text-muted-foreground hover:text-destructive" onClick={() => removePacote(pacote.id)}>
+                        <Button variant="ghost" size="sm" className="rounded-lg text-xs text-muted-foreground hover:text-destructive" onClick={() => { guardEdit(() => removePlanoTratamento(plano.id)); }}>
                           <Trash2 className="w-3 h-3" />
                         </Button>
                       </div>
@@ -370,18 +386,18 @@ export default function Servicos() {
         </DialogContent>
       </Dialog>
 
-      {/* Package Dialog */}
-      <Dialog open={pacoteDialog} onOpenChange={setPacoteDialog}>
+      {/* Treatment Plan Dialog */}
+      <Dialog open={planoDialog} onOpenChange={setPlanoDialog}>
         <DialogContent className="rounded-2xl">
           <DialogHeader>
             <DialogTitle className="font-heading">
-              {editingPacote ? 'Editar Pacote' : 'Novo Pacote'}
+              {editingPlano ? 'Editar Plano de Tratamento' : 'Novo Plano de Tratamento'}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 pt-2">
             <div>
-              <label className="text-sm font-medium mb-1.5 block">Nome do pacote</label>
-              <Input value={pNome} onChange={(e) => setPNome(e.target.value)} placeholder="Ex: Pacote 10 sessões" className="rounded-xl" />
+              <label className="text-sm font-medium mb-1.5 block">Nome do plano</label>
+              <Input value={pNome} onChange={(e) => setPNome(e.target.value)} placeholder="Ex: Plano 10 sessões" className="rounded-xl" />
             </div>
             <div>
               <label className="text-sm font-medium mb-1.5 block">Tipo de serviço</label>
@@ -410,8 +426,8 @@ export default function Servicos() {
                 <Input type="number" value={pValidade} onChange={(e) => setPValidade(parseInt(e.target.value) || 0)} className="rounded-xl font-mono" min={1} />
               </div>
             </div>
-            <Button onClick={savePacote} className="w-full rounded-xl" disabled={!pNome.trim() || !pServicoId}>
-              {editingPacote ? 'Salvar alterações' : 'Criar pacote'}
+            <Button onClick={savePlano} className="w-full rounded-xl" disabled={!pNome.trim() || !pServicoId}>
+              {editingPlano ? 'Salvar alterações' : 'Criar plano'}
             </Button>
           </div>
         </DialogContent>

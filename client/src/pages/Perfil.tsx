@@ -1,0 +1,505 @@
+/**
+ * Perfil Page
+ * Design: Warm Professional — Organic Modernism
+ * Professional identification: name, city, CREFITO, specialties, logo/photo
+ * Data used for personalized reports and PDF download
+ */
+
+import { useState, useRef } from 'react';
+import { motion } from 'framer-motion';
+import {
+  UserCircle,
+  Camera,
+  MapPin,
+  Award,
+  Stethoscope,
+  Download,
+  FileText,
+  Save,
+} from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import PageHeader from '@/components/PageHeader';
+import { useData } from '@/contexts/DataContext';
+import {
+  calcularTotalCustosFixos,
+  calcularTotalCustosVariaveis,
+  calcularCustoTotalMensal,
+  calcularPrecoMinimo,
+  calcularCustoTotalPorSessao,
+  calcularTaxaOcupacao,
+  calcularPontoEquilibrio,
+  calcularValorHora,
+  calcularPrecoServico,
+  calcularPrecoPlano,
+  formatarMoeda,
+  getValorMensal,
+} from '@/lib/store';
+import { toast } from 'sonner';
+
+export default function Perfil() {
+  const { data, perfil, updatePerfil, isRegistered, lead } = useData();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [generating, setGenerating] = useState(false);
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error('Imagem muito grande. Máximo 2MB.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const result = ev.target?.result as string;
+      updatePerfil({ logoUrl: result });
+      toast.success('Foto/logo atualizada!');
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const generatePDF = async () => {
+    if (!isRegistered) {
+      toast.error('Cadastre-se para baixar o relatório');
+      return;
+    }
+
+    setGenerating(true);
+
+    try {
+      const custoFixoTotal = calcularTotalCustosFixos(data.custosFixos);
+      const custoVarTotal = calcularTotalCustosVariaveis(data.custosVariaveis);
+      const custoMensal = calcularCustoTotalMensal(data);
+      const precoMinimo = calcularPrecoMinimo(data);
+      const custoSessao = calcularCustoTotalPorSessao(data);
+      const taxaOcupacao = calcularTaxaOcupacao(data);
+      const pontoEquilibrio = calcularPontoEquilibrio(data, precoMinimo);
+      const valorHora = calcularValorHora(data, precoMinimo);
+      const receitaPotencial = precoMinimo * data.sessoesMeta;
+      const lucroPotencial = receitaPotencial - custoMensal;
+      const margemLiquida = receitaPotencial > 0 ? (lucroPotencial / receitaPotencial) * 100 : 0;
+      const dataAtual = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
+
+      // Build custos fixos table rows
+      const custosFixosRows = data.custosFixos
+        .filter(c => c.valor > 0)
+        .map(c => `
+          <tr>
+            <td style="padding:6px 10px;border-bottom:1px solid #e5e0d8;font-size:12px;">${c.nome}</td>
+            <td style="padding:6px 10px;border-bottom:1px solid #e5e0d8;font-size:12px;text-align:center;">${c.frequencia === 'anual' ? 'Anual' : 'Mensal'}</td>
+            <td style="padding:6px 10px;border-bottom:1px solid #e5e0d8;font-size:12px;text-align:right;font-family:monospace;">${formatarMoeda(c.valor)}</td>
+            <td style="padding:6px 10px;border-bottom:1px solid #e5e0d8;font-size:12px;text-align:right;font-family:monospace;">${formatarMoeda(getValorMensal(c))}</td>
+          </tr>
+        `).join('');
+
+      const custosVariaveisRows = data.custosVariaveis
+        .filter(c => c.valor > 0)
+        .map(c => `
+          <tr>
+            <td style="padding:6px 10px;border-bottom:1px solid #e5e0d8;font-size:12px;">${c.nome}</td>
+            <td style="padding:6px 10px;border-bottom:1px solid #e5e0d8;font-size:12px;text-align:center;">${c.frequencia === 'anual' ? 'Anual' : 'Mensal'}</td>
+            <td style="padding:6px 10px;border-bottom:1px solid #e5e0d8;font-size:12px;text-align:right;font-family:monospace;">${formatarMoeda(c.valor)}</td>
+            <td style="padding:6px 10px;border-bottom:1px solid #e5e0d8;font-size:12px;text-align:right;font-family:monospace;">${formatarMoeda(getValorMensal(c))}</td>
+          </tr>
+        `).join('');
+
+      const servicosRows = data.tiposServico.map(s => {
+        const preco = calcularPrecoServico(data, s);
+        return `
+          <tr>
+            <td style="padding:6px 10px;border-bottom:1px solid #e5e0d8;font-size:12px;">${s.nome}</td>
+            <td style="padding:6px 10px;border-bottom:1px solid #e5e0d8;font-size:12px;text-align:center;">${s.duracaoMinutos} min</td>
+            <td style="padding:6px 10px;border-bottom:1px solid #e5e0d8;font-size:12px;text-align:center;">×${s.multiplicadorPreco.toFixed(1)}</td>
+            <td style="padding:6px 10px;border-bottom:1px solid #e5e0d8;font-size:12px;text-align:right;font-family:monospace;font-weight:bold;color:#b5725d;">${formatarMoeda(preco)}</td>
+          </tr>
+        `;
+      }).join('');
+
+      const planosRows = data.planosTratamento.map(p => {
+        const servico = data.tiposServico.find(s => s.id === p.tipoServicoId);
+        const precoUnit = servico ? calcularPrecoServico(data, servico) : precoMinimo;
+        const precoPlano = calcularPrecoPlano(precoUnit, p);
+        return `
+          <tr>
+            <td style="padding:6px 10px;border-bottom:1px solid #e5e0d8;font-size:12px;">${p.nome}</td>
+            <td style="padding:6px 10px;border-bottom:1px solid #e5e0d8;font-size:12px;text-align:center;">${p.quantidadeSessoes}</td>
+            <td style="padding:6px 10px;border-bottom:1px solid #e5e0d8;font-size:12px;text-align:center;">${p.descontoPercentual}%</td>
+            <td style="padding:6px 10px;border-bottom:1px solid #e5e0d8;font-size:12px;text-align:right;font-family:monospace;font-weight:bold;color:#b5725d;">${formatarMoeda(precoPlano)}</td>
+          </tr>
+        `;
+      }).join('');
+
+      const logoSection = perfil.logoUrl
+        ? `<img src="${perfil.logoUrl}" style="width:60px;height:60px;border-radius:50%;object-fit:cover;border:2px solid #c2785c;" />`
+        : `<div style="width:60px;height:60px;border-radius:50%;background:#c2785c;display:flex;align-items:center;justify-content:center;color:white;font-size:24px;font-weight:bold;">${(perfil.nome || lead?.nome || 'F')[0].toUpperCase()}</div>`;
+
+      const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Relatório de Precificação - FisioPrecifica</title>
+  <style>
+    @page { margin: 20mm 15mm; size: A4; }
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #3d3428; line-height: 1.5; margin: 0; padding: 0; }
+    .header { background: linear-gradient(135deg, #c2785c 0%, #7c9a82 100%); color: white; padding: 24px; border-radius: 0 0 16px 16px; margin-bottom: 20px; }
+    .header-content { display: flex; align-items: center; gap: 16px; }
+    .header-info h1 { margin: 0; font-size: 20px; }
+    .header-info p { margin: 2px 0; font-size: 12px; opacity: 0.9; }
+    .section { margin-bottom: 20px; break-inside: avoid; }
+    .section-title { font-size: 15px; font-weight: 700; color: #c2785c; border-bottom: 2px solid #c2785c; padding-bottom: 4px; margin-bottom: 10px; }
+    table { width: 100%; border-collapse: collapse; }
+    th { background: #f5f0eb; padding: 8px 10px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #8a7e74; border-bottom: 2px solid #e5e0d8; }
+    .highlight-box { background: #f5f0eb; border: 1px solid #e5e0d8; border-radius: 10px; padding: 16px; margin-bottom: 12px; }
+    .metric-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+    .metric { background: white; border: 1px solid #e5e0d8; border-radius: 8px; padding: 12px; text-align: center; }
+    .metric-label { font-size: 10px; color: #8a7e74; text-transform: uppercase; letter-spacing: 0.5px; }
+    .metric-value { font-size: 18px; font-weight: 700; color: #c2785c; font-family: monospace; margin-top: 4px; }
+    .footer { text-align: center; font-size: 10px; color: #8a7e74; margin-top: 30px; padding-top: 10px; border-top: 1px solid #e5e0d8; }
+    .price-highlight { background: linear-gradient(135deg, #c2785c10, #7c9a8210); border: 2px solid #c2785c; border-radius: 12px; padding: 20px; text-align: center; margin: 16px 0; }
+    .price-highlight .price { font-size: 32px; font-weight: 700; color: #c2785c; font-family: monospace; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="header-content">
+      ${logoSection}
+      <div class="header-info">
+        <h1>${perfil.nome || lead?.nome || 'Fisioterapeuta'}</h1>
+        ${perfil.crefito ? `<p>📋 ${perfil.crefito}</p>` : ''}
+        ${perfil.cidade ? `<p>📍 ${perfil.cidade}</p>` : ''}
+        ${perfil.especialidades ? `<p>🏥 ${perfil.especialidades}</p>` : ''}
+      </div>
+    </div>
+  </div>
+
+  <div style="padding: 0 10px;">
+    <div class="section">
+      <div class="section-title">Resumo Financeiro</div>
+      <div class="price-highlight">
+        <div style="font-size:12px;color:#8a7e74;margin-bottom:4px;">PREÇO MÍNIMO POR SESSÃO</div>
+        <div class="price">${formatarMoeda(precoMinimo)}</div>
+        <div style="font-size:11px;color:#8a7e74;margin-top:4px;">Com margem de ${(data.margemLucro * 100).toFixed(0)}% sobre custo de ${formatarMoeda(custoSessao)}</div>
+      </div>
+      <div class="metric-grid">
+        <div class="metric">
+          <div class="metric-label">Custo Mensal Total</div>
+          <div class="metric-value">${formatarMoeda(custoMensal)}</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Receita Potencial</div>
+          <div class="metric-value" style="color:#7c9a82;">${formatarMoeda(receitaPotencial)}</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Lucro Potencial</div>
+          <div class="metric-value" style="color:${lucroPotencial >= 0 ? '#7c9a82' : '#c2785c'};">${formatarMoeda(lucroPotencial)}</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Margem Líquida</div>
+          <div class="metric-value">${margemLiquida.toFixed(1)}%</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Ponto de Equilíbrio</div>
+          <div class="metric-value">${pontoEquilibrio === Infinity ? '—' : pontoEquilibrio + ' sessões'}</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Valor/Hora</div>
+          <div class="metric-value">${formatarMoeda(valorHora)}</div>
+        </div>
+      </div>
+    </div>
+
+    ${custosFixosRows ? `
+    <div class="section">
+      <div class="section-title">Custos Fixos</div>
+      <table>
+        <thead>
+          <tr>
+            <th>Item</th>
+            <th style="text-align:center;">Período</th>
+            <th style="text-align:right;">Valor</th>
+            <th style="text-align:right;">Mensal</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${custosFixosRows}
+          <tr style="background:#f5f0eb;font-weight:bold;">
+            <td colspan="3" style="padding:8px 10px;font-size:12px;">TOTAL</td>
+            <td style="padding:8px 10px;font-size:12px;text-align:right;font-family:monospace;color:#c2785c;">${formatarMoeda(custoFixoTotal)}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    ` : ''}
+
+    ${custosVariaveisRows ? `
+    <div class="section">
+      <div class="section-title">Custos Variáveis</div>
+      <table>
+        <thead>
+          <tr>
+            <th>Item</th>
+            <th style="text-align:center;">Período</th>
+            <th style="text-align:right;">Valor</th>
+            <th style="text-align:right;">Mensal</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${custosVariaveisRows}
+          <tr style="background:#f5f0eb;font-weight:bold;">
+            <td colspan="3" style="padding:8px 10px;font-size:12px;">TOTAL</td>
+            <td style="padding:8px 10px;font-size:12px;text-align:right;font-family:monospace;color:#d4a853;">${formatarMoeda(custoVarTotal)}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    ` : ''}
+
+    <div class="section">
+      <div class="section-title">Tabela de Serviços</div>
+      <table>
+        <thead>
+          <tr>
+            <th>Serviço</th>
+            <th style="text-align:center;">Duração</th>
+            <th style="text-align:center;">Multiplicador</th>
+            <th style="text-align:right;">Preço Sugerido</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${servicosRows}
+        </tbody>
+      </table>
+    </div>
+
+    ${planosRows ? `
+    <div class="section">
+      <div class="section-title">Planos de Tratamento</div>
+      <table>
+        <thead>
+          <tr>
+            <th>Plano</th>
+            <th style="text-align:center;">Sessões</th>
+            <th style="text-align:center;">Desconto</th>
+            <th style="text-align:right;">Valor Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${planosRows}
+        </tbody>
+      </table>
+    </div>
+    ` : ''}
+
+    <div class="section">
+      <div class="section-title">Parâmetros Utilizados</div>
+      <div class="highlight-box">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px;">
+          <div><strong>Dias úteis/mês:</strong> ${data.diasUteis}</div>
+          <div><strong>Sessões/dia:</strong> ${data.sessoesporDia}</div>
+          <div><strong>Meta sessões/mês:</strong> ${data.sessoesMeta}</div>
+          <div><strong>Margem de lucro:</strong> ${(data.margemLucro * 100).toFixed(0)}%</div>
+          <div><strong>Taxa de ocupação:</strong> ${taxaOcupacao.toFixed(1)}%</div>
+          <div><strong>Horas de trabalho/dia:</strong> ${data.horasTrabalho}h</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <p>Relatório gerado em ${dataAtual} pelo FisioPrecifica</p>
+      <p>Este relatório é uma estimativa baseada nos dados informados. Consulte seu contador para decisões fiscais.</p>
+    </div>
+  </div>
+</body>
+</html>`;
+
+      // Use browser print to PDF
+      const printWindow = window.open('', '_blank');
+      if (!printWindow) {
+        toast.error('Permita pop-ups para gerar o PDF');
+        setGenerating(false);
+        return;
+      }
+      printWindow.document.write(html);
+      printWindow.document.close();
+
+      // Wait for images to load then trigger print
+      setTimeout(() => {
+        printWindow.print();
+        setGenerating(false);
+        toast.success('Relatório gerado! Use "Salvar como PDF" na janela de impressão.');
+      }, 500);
+
+    } catch (err) {
+      console.error('Erro ao gerar PDF:', err);
+      toast.error('Erro ao gerar relatório');
+      setGenerating(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        title="Meu Perfil Profissional"
+        description="Seus dados serão usados para personalizar o relatório de precificação"
+        icon={UserCircle}
+        action={
+          <Button
+            onClick={generatePDF}
+            disabled={!isRegistered || generating}
+            className="rounded-xl gap-1.5"
+          >
+            <Download className="w-4 h-4" />
+            {generating ? 'Gerando...' : 'Baixar Relatório PDF'}
+          </Button>
+        }
+      />
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left: Photo/Logo */}
+        <motion.div
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          className="bg-card rounded-2xl border border-border p-6 flex flex-col items-center text-center"
+        >
+          <div className="relative group">
+            {perfil.logoUrl ? (
+              <img
+                src={perfil.logoUrl}
+                alt="Foto profissional"
+                className="w-32 h-32 rounded-full object-cover border-4 border-primary/20 shadow-lg"
+              />
+            ) : (
+              <div className="w-32 h-32 rounded-full bg-gradient-to-br from-terracotta/20 to-sage/20 flex items-center justify-center border-4 border-primary/10">
+                <UserCircle className="w-16 h-16 text-muted-foreground/40" />
+              </div>
+            )}
+            <button
+              onClick={() => {
+                if (!isRegistered) { toast.error('Cadastre-se para editar'); return; }
+                fileInputRef.current?.click();
+              }}
+              className="absolute bottom-0 right-0 w-10 h-10 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-lg hover:bg-primary/90 transition-colors"
+            >
+              <Camera className="w-5 h-5" />
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleImageUpload}
+              className="hidden"
+            />
+          </div>
+
+          <h3 className="font-heading font-bold text-foreground text-lg mt-4">
+            {perfil.nome || lead?.nome || 'Seu Nome'}
+          </h3>
+          {perfil.crefito && (
+            <p className="text-sm text-muted-foreground mt-1">{perfil.crefito}</p>
+          )}
+          {perfil.cidade && (
+            <p className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
+              <MapPin className="w-3.5 h-3.5" /> {perfil.cidade}
+            </p>
+          )}
+          {perfil.especialidades && (
+            <p className="text-xs text-muted-foreground mt-2 leading-relaxed">{perfil.especialidades}</p>
+          )}
+
+          <div className="mt-6 w-full pt-4 border-t border-border">
+            <Button
+              variant="outline"
+              className="w-full rounded-xl gap-1.5"
+              onClick={generatePDF}
+              disabled={!isRegistered || generating}
+            >
+              <FileText className="w-4 h-4" />
+              Gerar Relatório Completo
+            </Button>
+          </div>
+        </motion.div>
+
+        {/* Right: Form */}
+        <motion.div
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          className="lg:col-span-2 bg-card rounded-2xl border border-border p-6 space-y-5"
+        >
+          <h3 className="font-heading font-semibold text-foreground">Dados Profissionais</h3>
+          <p className="text-sm text-muted-foreground">
+            Estas informações aparecerão no cabeçalho do seu relatório de precificação.
+          </p>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label className="flex items-center gap-1.5">
+                <UserCircle className="w-3.5 h-3.5 opacity-60" />
+                Nome completo
+              </Label>
+              <Input
+                value={perfil.nome}
+                onChange={(e) => updatePerfil({ nome: e.target.value })}
+                placeholder="Dr(a). Seu Nome"
+                className="rounded-xl"
+                disabled={!isRegistered}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="flex items-center gap-1.5">
+                <MapPin className="w-3.5 h-3.5 opacity-60" />
+                Cidade / Estado
+              </Label>
+              <Input
+                value={perfil.cidade}
+                onChange={(e) => updatePerfil({ cidade: e.target.value })}
+                placeholder="São Paulo - SP"
+                className="rounded-xl"
+                disabled={!isRegistered}
+              />
+            </div>
+
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label className="flex items-center gap-1.5">
+                <Award className="w-3.5 h-3.5 opacity-60" />
+                CREFITO ou outro conselho de classe
+              </Label>
+              <Input
+                value={perfil.crefito}
+                onChange={(e) => updatePerfil({ crefito: e.target.value })}
+                placeholder="CREFITO-3/12345-F"
+                className="rounded-xl"
+                disabled={!isRegistered}
+              />
+            </div>
+
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label className="flex items-center gap-1.5">
+                <Stethoscope className="w-3.5 h-3.5 opacity-60" />
+                Especialidades
+              </Label>
+              <Textarea
+                value={perfil.especialidades}
+                onChange={(e) => updatePerfil({ especialidades: e.target.value })}
+                placeholder="Ex: Ortopedia, Pilates, RPG, Fisioterapia Esportiva..."
+                className="rounded-xl resize-none"
+                rows={3}
+                disabled={!isRegistered}
+              />
+            </div>
+          </div>
+
+          <div className="bg-sage/5 border border-sage/20 rounded-xl p-4">
+            <p className="text-sm text-foreground/80">
+              <strong className="text-sage-dark">Dica:</strong> Preencha todos os campos para ter um relatório profissional e completo.
+              O relatório inclui seus dados, custos, preços sugeridos, serviços e planos de tratamento.
+            </p>
+          </div>
+        </motion.div>
+      </div>
+    </div>
+  );
+}

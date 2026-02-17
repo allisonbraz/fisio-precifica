@@ -1,7 +1,7 @@
 /**
- * Indicadores Page
+ * Indicadores Page v2
  * Design: Warm Professional — Organic Modernism
- * Financial indicators and KPIs for the physiotherapy practice
+ * Financial indicators and KPIs — replaced "pacote" with "plano de tratamento"
  */
 
 import { useMemo } from 'react';
@@ -12,8 +12,6 @@ import {
   Clock,
   Users,
   DollarSign,
-  BarChart3,
-  PieChart as PieIcon,
   Percent,
   AlertTriangle,
   CheckCircle2,
@@ -32,7 +30,7 @@ import {
   calcularPontoEquilibrio,
   calcularValorHora,
   formatarMoeda,
-  formatarPercentual,
+  getValorMensal,
 } from '@/lib/store';
 import {
   RadarChart,
@@ -66,7 +64,9 @@ export default function Indicadores() {
     const custoVarPorSessao = data.sessoesMeta > 0 ? custoVarTotal / data.sessoesMeta : 0;
 
     // ROI do marketing
-    const custoMarketing = data.custosFixos.find(c => c.nome.toLowerCase().includes('marketing'))?.valor || 0;
+    const custoMarketing = data.custosFixos
+      .filter(c => c.nome.toLowerCase().includes('marketing'))
+      .reduce((sum, c) => sum + getValorMensal(c), 0);
     const roiMarketing = custoMarketing > 0 ? ((receitaPotencial - custoMensal) / custoMarketing) * 100 : 0;
 
     // Score de saúde financeira (0-100)
@@ -75,7 +75,7 @@ export default function Indicadores() {
       ocupacao: Math.min(taxaOcupacao / 80 * 100, 100),
       equilibrio: pontoEquilibrio !== Infinity ? Math.min((1 - pontoEquilibrio / capacidadeMaxima) * 100, 100) : 0,
       diversificacao: Math.min(data.tiposServico.length / 5 * 100, 100),
-      pacotes: Math.min(data.pacotes.length / 3 * 100, 100),
+      planos: Math.min(data.planosTratamento.length / 3 * 100, 100),
     };
     const saudeFinanceira = Object.values(scores).reduce((a, b) => a + b, 0) / Object.keys(scores).length;
 
@@ -92,7 +92,7 @@ export default function Indicadores() {
     { subject: 'Ocupação', value: metrics.scores.ocupacao, fullMark: 100 },
     { subject: 'Equilíbrio', value: metrics.scores.equilibrio, fullMark: 100 },
     { subject: 'Serviços', value: metrics.scores.diversificacao, fullMark: 100 },
-    { subject: 'Pacotes', value: metrics.scores.pacotes, fullMark: 100 },
+    { subject: 'Planos', value: metrics.scores.planos, fullMark: 100 },
   ], [metrics]);
 
   const dicas = useMemo(() => {
@@ -104,8 +104,8 @@ export default function Indicadores() {
     if (metrics.margemLiquida < 20) {
       tips.push({ icon: AlertTriangle, text: 'Sua margem está abaixo de 20%. Revise seus custos ou aumente o preço.', type: 'warning' });
     }
-    if (data.pacotes.length === 0) {
-      tips.push({ icon: Lightbulb, text: 'Crie pacotes com desconto para fidelizar pacientes e garantir receita recorrente.', type: 'info' });
+    if (data.planosTratamento.length === 0) {
+      tips.push({ icon: Lightbulb, text: 'Crie planos de tratamento com desconto para fidelizar pacientes e garantir receita recorrente.', type: 'info' });
     }
     if (data.tiposServico.length <= 2) {
       tips.push({ icon: Lightbulb, text: 'Diversifique seus serviços para atingir diferentes perfis de pacientes.', type: 'info' });
@@ -176,7 +176,7 @@ export default function Indicadores() {
                 { label: 'Taxa de Ocupação', value: metrics.scores.ocupacao },
                 { label: 'Ponto de Equilíbrio', value: metrics.scores.equilibrio },
                 { label: 'Diversificação de Serviços', value: metrics.scores.diversificacao },
-                { label: 'Pacotes Criados', value: metrics.scores.pacotes },
+                { label: 'Planos de Tratamento', value: metrics.scores.planos },
               ].map((item) => (
                 <div key={item.label}>
                   <div className="flex justify-between text-xs mb-1">
