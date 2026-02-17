@@ -72,12 +72,12 @@ export default function Perfil() {
       const custoFixoTotal = calcularTotalCustosFixos(data.custosFixos);
       const custoVarTotal = calcularTotalCustosVariaveis(data.custosVariaveis);
       const custoMensal = calcularCustoTotalMensal(data);
-      const precoMinimo = calcularPrecoMinimo(data);
+      const precoPorSessao = calcularPrecoMinimo(data); // preço = custo + margem
       const custoSessao = calcularCustoTotalPorSessao(data);
       const taxaOcupacao = calcularTaxaOcupacao(data);
-      const pontoEquilibrio = calcularPontoEquilibrio(data, precoMinimo);
-      const valorHora = calcularValorHora(data, precoMinimo);
-      const receitaPotencial = precoMinimo * data.sessoesMeta;
+      const pontoEquilibrio = calcularPontoEquilibrio(data, precoPorSessao);
+      const valorHora = calcularValorHora(data, precoPorSessao);
+      const receitaPotencial = precoPorSessao * data.sessoesMeta;
       const lucroPotencial = receitaPotencial - custoMensal;
       const margemLiquida = receitaPotencial > 0 ? (lucroPotencial / receitaPotencial) * 100 : 0;
       const dataAtual = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
@@ -119,7 +119,7 @@ export default function Perfil() {
 
       const planosRows = data.planosTratamento.map(p => {
         const servico = data.tiposServico.find(s => s.id === p.tipoServicoId);
-        const precoUnit = servico ? calcularPrecoServico(data, servico) : precoMinimo;
+        const precoUnit = servico ? calcularPrecoServico(data, servico) : precoPorSessao;
         const precoPlano = calcularPrecoPlano(precoUnit, p);
         return `
           <tr>
@@ -178,10 +178,17 @@ export default function Perfil() {
   <div style="padding: 0 10px;">
     <div class="section">
       <div class="section-title">Resumo Financeiro</div>
-      <div class="price-highlight">
-        <div style="font-size:12px;color:#8a7e74;margin-bottom:4px;">PREÇO MÍNIMO POR SESSÃO</div>
-        <div class="price">${formatarMoeda(precoMinimo)}</div>
-        <div style="font-size:11px;color:#8a7e74;margin-top:4px;">Com margem de ${(data.margemLucro * 100).toFixed(0)}% sobre custo de ${formatarMoeda(custoSessao)}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:16px 0;">
+        <div style="background:#fdf2ee;border:2px solid #c2785c;border-radius:12px;padding:16px;text-align:center;">
+          <div style="font-size:11px;color:#8a7e74;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px;">CUSTO POR SESSÃO</div>
+          <div style="font-size:28px;font-weight:700;color:#c2785c;font-family:monospace;">${formatarMoeda(custoSessao)}</div>
+          <div style="font-size:10px;color:#8a7e74;margin-top:4px;">Mínimo para não ter prejuízo</div>
+        </div>
+        <div style="background:#f0f5f1;border:2px solid #7c9a82;border-radius:12px;padding:16px;text-align:center;">
+          <div style="font-size:11px;color:#8a7e74;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px;">PREÇO POR SESSÃO</div>
+          <div style="font-size:28px;font-weight:700;color:#7c9a82;font-family:monospace;">${formatarMoeda(precoPorSessao)}</div>
+          <div style="font-size:10px;color:#8a7e74;margin-top:4px;">Com margem de ${(data.margemLucro * 100).toFixed(0)}% sobre o custo</div>
+        </div>
       </div>
       <div class="metric-grid">
         <div class="metric">

@@ -39,7 +39,7 @@ export default function Simulacao() {
   const { data } = useData();
   const [precoCustom, setPrecoCustom] = useState(150);
 
-  const precoMinimo = calcularPrecoMinimo(data);
+  const precoPorSessao = calcularPrecoMinimo(data); // preço = custo + margem
 
   // Predefined simulation prices
   const precosSimulacao = useMemo(() => {
@@ -120,12 +120,12 @@ export default function Simulacao() {
               />
               <div className="flex justify-between text-xs text-muted-foreground mt-1">
                 <span>R$ 30</span>
-                <span className="text-primary font-medium">Mínimo: {formatarMoeda(precoMinimo)}</span>
+                <span className="text-primary font-medium">Preço sugerido: {formatarMoeda(precoPorSessao)}</span>
                 <span>R$ 500</span>
               </div>
             </div>
 
-            {precoCustom < precoMinimo && (
+            {precoCustom < precoPorSessao && (
               <div className="flex items-center gap-2 p-3 rounded-xl bg-destructive/10 text-destructive text-sm">
                 <AlertTriangle className="w-4 h-4 flex-shrink-0" />
                 <span>Este preço está abaixo do mínimo! Você terá prejuízo.</span>
@@ -187,7 +187,7 @@ export default function Simulacao() {
                 labelFormatter={(v) => `Preço: R$ ${v}`}
                 contentStyle={{ borderRadius: '12px', border: '1px solid #e5e0d8', boxShadow: '0 4px 12px rgba(0,0,0,0.08)', fontSize: '13px' }}
               />
-              <ReferenceLine x={Math.round(precoMinimo / 10) * 10} stroke="#c2785c" strokeDasharray="5 5" label={{ value: 'Mínimo', position: 'top', fill: '#c2785c', fontSize: 11 }} />
+              <ReferenceLine x={Math.round(precoPorSessao / 10) * 10} stroke="#c2785c" strokeDasharray="5 5" label={{ value: 'Preço sugerido', position: 'top', fill: '#c2785c', fontSize: 11 }} />
               <Area type="monotone" dataKey="receita" stroke="#7c9a82" fill="url(#colorReceita)" strokeWidth={2} name="receita" />
               <Area type="monotone" dataKey="lucro" stroke="#d4a853" fill="url(#colorLucro)" strokeWidth={2} name="lucro" />
             </AreaChart>
@@ -269,7 +269,7 @@ export default function Simulacao() {
                 <tr
                   key={sim.preco}
                   className={`border-b border-border/50 ${
-                    sim.preco === Math.round(precoMinimo / 10) * 10 ? 'bg-primary/5' : ''
+                    sim.preco === Math.round(precoPorSessao / 10) * 10 ? 'bg-primary/5' : ''
                   } ${!sim.viavel ? 'opacity-60' : ''}`}
                 >
                   <td className="px-4 py-3 font-mono font-medium">{formatarMoeda(sim.preco)}</td>

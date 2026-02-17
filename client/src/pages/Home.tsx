@@ -2,6 +2,10 @@
  * Home / Dashboard Page
  * Design: Warm Professional — Organic Modernism
  * Overview of financial health with key metrics and quick actions
+ * 
+ * NOMENCLATURA CORRETA:
+ * - "Custo por Sessão" = custo total mensal ÷ sessões (mínimo para não ter prejuízo)
+ * - "Preço por Sessão" = valor que o profissional define cobrar (custo + margem)
  */
 
 import { useMemo } from 'react';
@@ -14,11 +18,11 @@ import {
   Target,
   ArrowRight,
   BarChart3,
-  Package,
   AlertTriangle,
   CheckCircle2,
   Wallet,
   Clock,
+  Briefcase,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import StatCard from '@/components/StatCard';
@@ -27,6 +31,7 @@ import {
   calcularTotalCustosFixos,
   calcularTotalCustosVariaveis,
   calcularCustoTotalMensal,
+  calcularCustoTotalPorSessao,
   calcularPrecoMinimo,
   calcularTaxaOcupacao,
   calcularPontoEquilibrio,
@@ -58,18 +63,20 @@ export default function Home() {
     const custoFixoTotal = calcularTotalCustosFixos(data.custosFixos);
     const custoVarTotal = calcularTotalCustosVariaveis(data.custosVariaveis);
     const custoMensal = calcularCustoTotalMensal(data);
-    const precoMinimo = calcularPrecoMinimo(data);
+    const custoPorSessao = calcularCustoTotalPorSessao(data);
+    const precoPorSessao = calcularPrecoMinimo(data); // preço = custo + margem
     const taxaOcupacao = calcularTaxaOcupacao(data);
-    const pontoEquilibrio = calcularPontoEquilibrio(data, precoMinimo);
-    const valorHora = calcularValorHora(data, precoMinimo);
-    const receitaPotencial = precoMinimo * data.sessoesMeta;
+    const pontoEquilibrio = calcularPontoEquilibrio(data, precoPorSessao);
+    const valorHora = calcularValorHora(data, precoPorSessao);
+    const receitaPotencial = precoPorSessao * data.sessoesMeta;
     const lucroPotencial = receitaPotencial - custoMensal;
 
     return {
       custoFixoTotal,
       custoVarTotal,
       custoMensal,
-      precoMinimo,
+      custoPorSessao,
+      precoPorSessao,
       taxaOcupacao,
       pontoEquilibrio,
       valorHora,
@@ -153,17 +160,17 @@ export default function Home() {
             variant="primary"
           />
           <StatCard
-            title="Preço Mínimo/Sessão"
-            value={formatarMoeda(metrics.precoMinimo)}
-            subtitle={`Margem de ${(data.margemLucro * 100).toFixed(0)}%`}
+            title="Custo por Sessão"
+            value={formatarMoeda(metrics.custoPorSessao)}
+            subtitle="Mínimo para não ter prejuízo"
             icon={DollarSign}
             variant="warning"
           />
           <StatCard
-            title="Receita Potencial"
-            value={formatarMoeda(metrics.receitaPotencial)}
-            subtitle={`${data.sessoesMeta} sessões/mês`}
-            icon={TrendingUp}
+            title="Preço por Sessão"
+            value={formatarMoeda(metrics.precoPorSessao)}
+            subtitle={`Com margem de ${(data.margemLucro * 100).toFixed(0)}%`}
+            icon={Calculator}
             variant="success"
           />
           <StatCard
@@ -188,7 +195,7 @@ export default function Home() {
         <StatCard
           title="Valor/Hora"
           value={formatarMoeda(metrics.valorHora)}
-          subtitle="Baseado no preço mínimo"
+          subtitle="Baseado no preço por sessão"
           icon={Clock}
           variant="default"
         />
@@ -303,8 +310,8 @@ export default function Home() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {[
             { href: '/custos', icon: DollarSign, title: 'Gerenciar Custos', desc: 'Fixos e variáveis', color: 'from-terracotta/10 to-terracotta/5' },
-            { href: '/precificacao', icon: Calculator, title: 'Calcular Preço', desc: 'Preço mínimo ideal', color: 'from-sage/10 to-sage/5' },
-            { href: '/servicos', icon: Package, title: 'Tipos de Serviço', desc: 'Preços por serviço', color: 'from-golden/10 to-golden/5' },
+            { href: '/precificacao', icon: Calculator, title: 'Calcular Preço', desc: 'Custo e preço por sessão', color: 'from-sage/10 to-sage/5' },
+            { href: '/servicos', icon: Briefcase, title: 'Tipos de Serviço', desc: 'Preços por serviço', color: 'from-golden/10 to-golden/5' },
             { href: '/simulacao', icon: TrendingUp, title: 'Simular Cenários', desc: 'Otimista e pessimista', color: 'from-primary/10 to-primary/5' },
           ].map((item) => (
             <Link key={item.href} href={item.href}>

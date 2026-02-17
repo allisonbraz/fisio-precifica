@@ -1,7 +1,11 @@
 /**
- * Precificação Page v2
+ * Precificação Page v3
  * Design: Warm Professional — Organic Modernism
  * Dual pricing: by margin OR by defined price — both linked
+ * 
+ * NOMENCLATURA CORRETA:
+ * - "Custo por Sessão" = custo total ÷ sessões (mínimo para não ter prejuízo)
+ * - "Preço por Sessão" = valor definido pelo profissional (custo + margem)
  */
 
 import { useState, useMemo, useCallback } from 'react';
@@ -12,6 +16,7 @@ import {
   Info,
   TrendingUp,
   ArrowLeftRight,
+  AlertTriangle,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Slider } from '@/components/ui/slider';
@@ -67,9 +72,9 @@ export default function Precificacao() {
     const custoFixoSessao = calcularCustoFixoPorSessao(data);
     const custoVarSessao = calcularCustoVariavelPorSessao(data);
     const custoTotalSessao = calcularCustoTotalPorSessao(data);
-    const precoMinimo = calcularPrecoMinimo(data);
-    const pontoEquilibrio = calcularPontoEquilibrio(data, precoMinimo);
-    const valorHora = calcularValorHora(data, precoMinimo);
+    const precoPorSessao = calcularPrecoMinimo(data); // preço = custo + margem
+    const pontoEquilibrio = calcularPontoEquilibrio(data, precoPorSessao);
+    const valorHora = calcularValorHora(data, precoPorSessao);
 
     return {
       custoFixoTotal,
@@ -77,7 +82,7 @@ export default function Precificacao() {
       custoFixoSessao,
       custoVarSessao,
       custoTotalSessao,
-      precoMinimo,
+      precoPorSessao,
       pontoEquilibrio,
       valorHora,
     };
@@ -106,7 +111,7 @@ export default function Precificacao() {
   const breakdownData = useMemo(() => [
     { name: 'Custo Fixo', valor: metrics.custoFixoSessao, fill: '#b5725d' },
     { name: 'Custo Variável', valor: metrics.custoVarSessao, fill: '#d4a853' },
-    { name: 'Margem de Lucro', valor: Math.max(0, metrics.precoMinimo - metrics.custoTotalSessao), fill: '#7c9a82' },
+    { name: 'Margem de Lucro', valor: Math.max(0, metrics.precoPorSessao - metrics.custoTotalSessao), fill: '#7c9a82' },
   ], [metrics]);
 
   const isAbaixoCusto = data.precoDefinido > 0 && data.precoDefinido < metrics.custoTotalSessao;
@@ -256,14 +261,14 @@ export default function Precificacao() {
                 Ou defina o preço diretamente
               </label>
               <CurrencyInput
-                value={data.precoDefinido || metrics.precoMinimo}
+                value={data.precoDefinido || metrics.precoPorSessao}
                 onChange={handlePrecoChange}
                 disabled={!isRegistered}
               />
               {isAbaixoCusto && (
                 <p className="text-xs text-destructive mt-1.5 flex items-center gap-1">
-                  <Info className="w-3 h-3" />
-                  Preço abaixo do custo por sessão ({formatarMoeda(metrics.custoTotalSessao)})
+                  <AlertTriangle className="w-3 h-3" />
+                  Preço abaixo do custo por sessão ({formatarMoeda(metrics.custoTotalSessao)}) — você terá prejuízo!
                 </p>
               )}
             </div>
@@ -272,24 +277,47 @@ export default function Precificacao() {
 
         {/* Right: Results */}
         <div className="lg:col-span-2 space-y-4">
-          {/* Price Result */}
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="bg-gradient-to-br from-primary/5 via-card to-sage-light/10 rounded-2xl border border-border p-6 text-center"
-          >
-            <p className="text-sm text-muted-foreground font-medium">Preço por Sessão</p>
-            <p className="text-5xl font-heading font-bold text-primary mt-2 font-mono">
-              {formatarMoeda(metrics.precoMinimo)}
-            </p>
-            <p className="text-sm text-muted-foreground mt-2">
-              Com margem de {(data.margemLucro * 100).toFixed(0)}% sobre o custo de {formatarMoeda(metrics.custoTotalSessao)}
-            </p>
-            <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-sage/10 text-sage-dark text-sm font-medium">
-              <CheckCircle2 className="w-4 h-4" />
-              Nunca cobre abaixo de {formatarMoeda(metrics.custoTotalSessao)} (seu custo)
-            </div>
-          </motion.div>
+          {/* Two-card result: Custo vs Preço */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Custo por Sessão */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="bg-gradient-to-br from-terracotta/5 via-card to-terracotta/10 rounded-2xl border border-border p-6 text-center"
+            >
+              <p className="text-sm text-muted-foreground font-medium">Custo por Sessão</p>
+              <p className="text-3xl lg:text-4xl font-heading font-bold text-terracotta mt-2 font-mono">
+                {formatarMoeda(metrics.custoTotalSessao)}
+              </p>
+              <p className="text-xs text-muted-foreground mt-2">
+                Mínimo para não ter prejuízo
+              </p>
+              <div className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-terracotta/10 text-terracotta text-xs font-medium">
+                <AlertTriangle className="w-3.5 h-3.5" />
+                Nunca cobre abaixo deste valor
+              </div>
+            </motion.div>
+
+            {/* Preço por Sessão */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.05 }}
+              className="bg-gradient-to-br from-sage/5 via-card to-sage-light/10 rounded-2xl border border-border p-6 text-center"
+            >
+              <p className="text-sm text-muted-foreground font-medium">Preço por Sessão</p>
+              <p className="text-3xl lg:text-4xl font-heading font-bold text-primary mt-2 font-mono">
+                {formatarMoeda(metrics.precoPorSessao)}
+              </p>
+              <p className="text-xs text-muted-foreground mt-2">
+                Com margem de {(data.margemLucro * 100).toFixed(0)}% sobre o custo
+              </p>
+              <div className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-sage/10 text-sage-dark text-xs font-medium">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                Valor sugerido para cobrar
+              </div>
+            </motion.div>
+          </div>
 
           {/* Breakdown Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -305,7 +333,7 @@ export default function Precificacao() {
             </div>
             <div className="bg-card rounded-xl border border-border p-4">
               <p className="text-xs text-muted-foreground">Lucro/sessão</p>
-              <p className="text-lg font-mono font-bold text-sage-dark mt-1">{formatarMoeda(Math.max(0, metrics.precoMinimo - metrics.custoTotalSessao))}</p>
+              <p className="text-lg font-mono font-bold text-sage-dark mt-1">{formatarMoeda(Math.max(0, metrics.precoPorSessao - metrics.custoTotalSessao))}</p>
               <p className="text-xs text-muted-foreground mt-1">Margem de {(data.margemLucro * 100).toFixed(0)}%</p>
             </div>
           </div>
@@ -317,7 +345,7 @@ export default function Precificacao() {
             transition={{ delay: 0.2 }}
             className="bg-card rounded-2xl border border-border p-6"
           >
-            <h3 className="font-heading font-semibold text-foreground mb-4">Composição do Preço</h3>
+            <h3 className="font-heading font-semibold text-foreground mb-4">Composição do Preço por Sessão</h3>
             <div className="h-[200px]">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={breakdownData} layout="vertical" barCategoryGap="30%">

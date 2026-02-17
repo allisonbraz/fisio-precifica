@@ -226,7 +226,7 @@ export default function Configuracoes() {
           </p>
           <ul className="list-disc list-inside space-y-1 ml-2">
             <li>Gestão completa de custos fixos e variáveis</li>
-            <li>Cálculo automático do preço mínimo por sessão</li>
+            <li>Cálculo automático do custo e preço por sessão</li>
             <li>Diferentes tipos de serviço com preços calculados</li>
             <li>Planos de tratamento com desconto para fidelização</li>
             <li>Simulação de cenários (otimista, realista, pessimista)</li>

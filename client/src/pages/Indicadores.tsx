@@ -48,11 +48,11 @@ export default function Indicadores() {
     const custoFixoTotal = calcularTotalCustosFixos(data.custosFixos);
     const custoVarTotal = calcularTotalCustosVariaveis(data.custosVariaveis);
     const custoMensal = calcularCustoTotalMensal(data);
-    const precoMinimo = calcularPrecoMinimo(data);
+    const precoPorSessao = calcularPrecoMinimo(data); // preço = custo + margem
     const taxaOcupacao = calcularTaxaOcupacao(data);
-    const pontoEquilibrio = calcularPontoEquilibrio(data, precoMinimo);
-    const valorHora = calcularValorHora(data, precoMinimo);
-    const receitaPotencial = precoMinimo * data.sessoesMeta;
+    const pontoEquilibrio = calcularPontoEquilibrio(data, precoPorSessao);
+    const valorHora = calcularValorHora(data, precoPorSessao);
+    const receitaPotencial = precoPorSessao * data.sessoesMeta;
     const lucroPotencial = receitaPotencial - custoMensal;
     const margemLiquida = receitaPotencial > 0 ? (lucroPotencial / receitaPotencial) * 100 : 0;
     const custoFixoPerc = custoMensal > 0 ? (custoFixoTotal / custoMensal) * 100 : 0;
@@ -80,7 +80,7 @@ export default function Indicadores() {
     const saudeFinanceira = Object.values(scores).reduce((a, b) => a + b, 0) / Object.keys(scores).length;
 
     return {
-      custoFixoTotal, custoVarTotal, custoMensal, precoMinimo, taxaOcupacao,
+      custoFixoTotal, custoVarTotal, custoMensal, precoPorSessao, taxaOcupacao,
       pontoEquilibrio, valorHora, receitaPotencial, lucroPotencial, margemLiquida,
       custoFixoPerc, custoVarPerc, capacidadeMaxima, horasMensais, faturamentoPorHora,
       custoFixoPorSessao, custoVarPorSessao, roiMarketing, scores, saudeFinanceira,
