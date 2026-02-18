@@ -1,8 +1,7 @@
 /**
- * FisioPrecifica Data Store v2
- * Design: Warm Professional — Organic Modernism
- * Manages all pricing data with localStorage persistence
- * Includes: lead capture, professional profile, annual/monthly costs, treatment plans
+ * FisioPrecifica Data Store v3
+ * Evolução Estrutural: Separação Custos Operacionais / Depreciação / Reservas Estratégicas
+ * "O sistema deve proteger o profissional de decisões financeiras erradas."
  */
 
 // ===== INTERFACES =====
@@ -30,7 +29,11 @@ export interface CustoFixo {
   valor: number;
   frequencia: FrequenciaCusto;
   observacao: string;
-  descricao: string; // brief description/example
+  descricao: string;
+  /** If true, this item has an active installment (parcela) — blocks depreciation */
+  temParcelaAtiva?: boolean;
+  /** If true, this item is a depreciation/amortization entry */
+  isDepreciacao?: boolean;
 }
 
 export interface CustoVariavel {
@@ -39,6 +42,14 @@ export interface CustoVariavel {
   valor: number;
   frequencia: FrequenciaCusto;
   observacao: string;
+  descricao: string;
+}
+
+export interface ReservaEstrategica {
+  id: string;
+  nome: string;
+  valor: number;
+  frequencia: FrequenciaCusto;
   descricao: string;
 }
 
@@ -73,6 +84,7 @@ export interface RegistroMensal {
 export interface DadosPrecificacao {
   custosFixos: CustoFixo[];
   custosVariaveis: CustoVariavel[];
+  reservasEstrategicas: ReservaEstrategica[];
   sessoesMeta: number;
   margemLucro: number;
   precoDefinido: number;
@@ -101,15 +113,20 @@ const defaultCustosFixos: CustoFixo[] = [
   { id: '5', nome: 'Aluguel do consultório/sala', valor: 0, frequencia: 'mensal', observacao: '', descricao: 'Valor mensal do aluguel do espaço onde você atende. Ex: R$ 1.500/mês por uma sala comercial.' },
   { id: '6', nome: 'Contador/Contabilidade', valor: 0, frequencia: 'mensal', observacao: '', descricao: 'Honorários do escritório de contabilidade. Ex: R$ 300 a R$ 800/mês dependendo do porte.' },
   { id: '7', nome: 'Software de Gestão', valor: 0, frequencia: 'mensal', observacao: '', descricao: 'Assinatura de sistemas como ZenFisio, Fisioclin, etc. Ex: R$ 100 a R$ 300/mês.' },
-  { id: '8', nome: 'Depreciação de equipamentos', valor: 0, frequencia: 'mensal', observacao: '', descricao: 'Reserva mensal para reposição de equipamentos. Ex: Maca de R$ 3.600 ÷ 60 meses = R$ 60/mês.' },
-  { id: '9', nome: 'Internet/Telefone', valor: 0, frequencia: 'mensal', observacao: '', descricao: 'Plano de internet e telefone do consultório. Ex: R$ 150/mês para internet fibra + telefone.' },
-  { id: '10', nome: 'Seguro', valor: 0, frequencia: 'anual', observacao: '', descricao: 'Seguro de responsabilidade civil profissional. Ex: R$ 800 a R$ 2.000/ano.' },
-  { id: '11', nome: 'Marketing fixo', valor: 0, frequencia: 'mensal', observacao: '', descricao: 'Investimento recorrente em marketing: site, redes sociais, Google Ads. Ex: R$ 500/mês.' },
-  { id: '12', nome: 'Aquisição e Manutenção de Equipamentos', valor: 0, frequencia: 'anual', observacao: '', descricao: 'Manutenção preventiva e compra de acessórios. Ex: R$ 2.400/ano para manutenção de aparelhos.' },
-  { id: '13', nome: 'Combustível', valor: 0, frequencia: 'mensal', observacao: '', descricao: 'Gasto com deslocamento para atendimentos domiciliares ou entre unidades. Ex: R$ 400/mês.' },
-  { id: '14', nome: 'Cursos e Capacitação', valor: 0, frequencia: 'anual', observacao: '', descricao: 'Investimento em cursos, congressos e especializações. Ex: R$ 3.000/ano em formação continuada.' },
-  { id: '15', nome: 'Condomínio, IPTU e impostos prediais', valor: 0, frequencia: 'mensal', observacao: '', descricao: 'Taxas do imóvel comercial. Ex: Condomínio R$ 400 + IPTU R$ 100/mês.' },
-  { id: '16', nome: 'Outros custos fixos', valor: 0, frequencia: 'mensal', observacao: '', descricao: 'Qualquer outro custo fixo não listado acima. Ex: estacionamento, uniformes, etc.' },
+  { id: '8', nome: 'Internet/Telefone', valor: 0, frequencia: 'mensal', observacao: '', descricao: 'Plano de internet e telefone do consultório. Ex: R$ 150/mês para internet fibra + telefone.' },
+  { id: '9', nome: 'Seguro', valor: 0, frequencia: 'anual', observacao: '', descricao: 'Seguro de responsabilidade civil profissional. Ex: R$ 800 a R$ 2.000/ano.' },
+  { id: '10', nome: 'Marketing fixo', valor: 0, frequencia: 'mensal', observacao: '', descricao: 'Investimento recorrente em marketing: site, redes sociais, Google Ads. Ex: R$ 500/mês.' },
+  { id: '11', nome: 'Combustível', valor: 0, frequencia: 'mensal', observacao: '', descricao: 'Gasto com deslocamento para atendimentos domiciliares ou entre unidades. Ex: R$ 400/mês.' },
+  { id: '12', nome: 'Condomínio, IPTU e impostos prediais', valor: 0, frequencia: 'mensal', observacao: '', descricao: 'Taxas do imóvel comercial. Ex: Condomínio R$ 400 + IPTU R$ 100/mês.' },
+  { id: '13', nome: 'Parcelas de financiamento', valor: 0, frequencia: 'mensal', observacao: '', descricao: 'Parcelas de equipamentos ou imóvel financiado. Ex: R$ 500/mês. Enquanto houver parcela, não aplique depreciação ao mesmo bem.', temParcelaAtiva: true },
+  { id: '14', nome: 'Outros custos fixos', valor: 0, frequencia: 'mensal', observacao: '', descricao: 'Qualquer outro custo fixo não listado acima. Ex: estacionamento, uniformes, etc.' },
+];
+
+// Depreciação como custo fixo especial (isDepreciacao = true)
+const defaultDepreciacao: CustoFixo[] = [
+  { id: 'dep1', nome: 'Depreciação de equipamentos', valor: 0, frequencia: 'mensal', observacao: '', descricao: 'Consumo financeiro de equipamentos ao longo do tempo. Ex: Maca de R$ 3.600 ÷ 60 meses = R$ 60/mês. Não pode coexistir com parcela ativa do mesmo bem.', isDepreciacao: true, temParcelaAtiva: false },
+  { id: 'dep2', nome: 'Depreciação de mobiliário', valor: 0, frequencia: 'mensal', observacao: '', descricao: 'Desgaste de móveis (mesas, cadeiras, armários). Ex: Mobiliário de R$ 6.000 ÷ 120 meses = R$ 50/mês.', isDepreciacao: true, temParcelaAtiva: false },
+  { id: 'dep3', nome: 'Amortização de reformas', valor: 0, frequencia: 'mensal', observacao: '', descricao: 'Diluição do custo de reformas no imóvel. Ex: Reforma de R$ 12.000 ÷ 60 meses = R$ 200/mês.', isDepreciacao: true, temParcelaAtiva: false },
 ];
 
 const defaultCustosVariaveis: CustoVariavel[] = [
@@ -126,6 +143,16 @@ const defaultCustosVariaveis: CustoVariavel[] = [
   { id: '11', nome: 'Outros custos variáveis', valor: 0, frequencia: 'mensal', observacao: '', descricao: 'Qualquer outro custo que varia conforme o volume de atendimentos.' },
 ];
 
+const defaultReservasEstrategicas: ReservaEstrategica[] = [
+  { id: 'r1', nome: 'Fundo de reposição de equipamentos', valor: 0, frequencia: 'mensal', descricao: 'Reserva para comprar equipamentos novos no futuro. Ex: R$ 300/mês para trocar aparelhos a cada 5 anos.' },
+  { id: 'r2', nome: 'Cursos e capacitação estratégica', valor: 0, frequencia: 'mensal', descricao: 'Investimento em formações que não são obrigatórias, mas agregam valor. Ex: R$ 500/mês para especializações.' },
+  { id: 'r3', nome: 'Mentorias e consultorias', valor: 0, frequencia: 'mensal', descricao: 'Acompanhamento profissional para crescimento do negócio. Ex: R$ 800/mês de mentoria de gestão.' },
+  { id: 'r4', nome: 'Reserva de emergência', valor: 0, frequencia: 'mensal', descricao: 'Colchão financeiro para imprevistos (3 a 6 meses de custos). Ex: R$ 1.000/mês até atingir a meta.' },
+  { id: 'r5', nome: 'Férias e 13º (provisão)', valor: 0, frequencia: 'mensal', descricao: 'Provisão mensal para se pagar férias e 13º como autônomo. Ex: Pró-labore ÷ 12 + Pró-labore/3 ÷ 12.' },
+  { id: 'r6', nome: 'Expansão do negócio', valor: 0, frequencia: 'mensal', descricao: 'Reserva para abrir nova unidade, contratar mais profissionais ou ampliar o espaço. Ex: R$ 500/mês.' },
+  { id: 'r7', nome: 'Outras reservas estratégicas', valor: 0, frequencia: 'mensal', descricao: 'Qualquer outra reserva por decisão estratégica do gestor.' },
+];
+
 const defaultTiposServico: TipoServico[] = [
   { id: '1', nome: 'Sessão Individual', duracaoMinutos: 50, custoAdicional: 0, multiplicadorPreco: 1, descricao: 'Atendimento padrão em consultório' },
   { id: '2', nome: 'Avaliação Inicial', duracaoMinutos: 60, custoAdicional: 0, multiplicadorPreco: 1.5, descricao: 'Primeira consulta com avaliação completa' },
@@ -135,8 +162,9 @@ const defaultTiposServico: TipoServico[] = [
 ];
 
 const defaultData: DadosPrecificacao = {
-  custosFixos: defaultCustosFixos,
+  custosFixos: [...defaultCustosFixos, ...defaultDepreciacao],
   custosVariaveis: defaultCustosVariaveis,
+  reservasEstrategicas: defaultReservasEstrategicas,
   sessoesMeta: 80,
   margemLucro: 0.30,
   precoDefinido: 0,
@@ -158,21 +186,23 @@ const defaultPerfil: PerfilProfissional = {
 
 // ===== LOAD / SAVE =====
 
-// Map of old names to new names for migration
 const CUSTOS_FIXOS_NAME_MAP: Record<string, string> = {
   'CREFITO': 'CREFITO ou outro conselho de classe',
   'CREFITO (anuidade)': 'CREFITO ou outro conselho de classe',
   'Conselho de classe': 'CREFITO ou outro conselho de classe',
 };
 
-/** Match a stored custo to its default by normalized name similarity */
+// Items that should be migrated from custos to reservas
+const ITEMS_TO_MIGRATE_TO_RESERVAS = new Set([
+  'cursos e capacitação',
+  'aquisição e manutenção de equipamentos',
+]);
+
 function findDefaultByName(nome: string, defaults: { nome: string; descricao: string; frequencia: FrequenciaCusto }[]): { nome: string; descricao: string; frequencia: FrequenciaCusto } | undefined {
   const normalized = nome.toLowerCase().trim();
-  // Exact match first
   const exact = defaults.find(d => d.nome.toLowerCase().trim() === normalized);
   if (exact) return exact;
-  // Partial match (stored name is contained in default name or vice-versa)
-  const partial = defaults.find(d => 
+  const partial = defaults.find(d =>
     d.nome.toLowerCase().includes(normalized) || normalized.includes(d.nome.toLowerCase())
   );
   return partial;
@@ -188,22 +218,32 @@ export function loadData(): DadosPrecificacao {
         parsed.planosTratamento = parsed.pacotes;
         delete parsed.pacotes;
       }
-      // Migrate custos fixos: update names, add descriptions, fix frequencies, clear stale observacoes
+
+      // Old default observacoes that should be cleared
+      const STALE_OBSERVACOES = new Set([
+        'anuidade ÷ 12 meses', 'anuidade ÷ 12', 'sua retirada mensal',
+        'site, redes sociais', 'atendimento domiciliar',
+        'condomínio + iptu', 'gel, eletrodos, etc.',
+      ]);
+
+      // Migrate custos fixos
       if (parsed.custosFixos) {
-        // Old default observacoes that should be cleared (they were from the old template)
-        const STALE_OBSERVACOES = new Set([
-          'anuidade ÷ 12 meses', 'anuidade ÷ 12', 'sua retirada mensal',
-          'site, redes sociais', 'atendimento domiciliar',
-          'condomínio + iptu', 'gel, eletrodos, etc.',
-        ]);
+        // Remove items that should now be reservas (if they have no value set)
+        const migratedToReservas: any[] = [];
+        parsed.custosFixos = parsed.custosFixos.filter((c: any) => {
+          if (ITEMS_TO_MIGRATE_TO_RESERVAS.has(c.nome.toLowerCase().trim())) {
+            if (c.valor > 0) migratedToReservas.push(c);
+            return false; // Remove from custos fixos
+          }
+          return true;
+        });
+
         parsed.custosFixos = parsed.custosFixos.map((c: any) => {
-          // Check if name needs to be migrated
           const mappedName = CUSTOS_FIXOS_NAME_MAP[c.nome] || c.nome;
-          // Find matching default by ID first, then by name
-          const defaultById = defaultCustosFixos.find(d => d.id === c.id);
-          const defaultByName = findDefaultByName(mappedName, defaultCustosFixos);
+          const allDefaults = [...defaultCustosFixos, ...defaultDepreciacao];
+          const defaultById = allDefaults.find(d => d.id === c.id);
+          const defaultByName = findDefaultByName(mappedName, allDefaults);
           const matched = defaultById || defaultByName;
-          // Clear stale observacoes from old template
           const cleanObs = (c.observacao && STALE_OBSERVACOES.has(c.observacao.toLowerCase().trim())) ? '' : (c.observacao || '');
           return {
             ...c,
@@ -211,16 +251,25 @@ export function loadData(): DadosPrecificacao {
             frequencia: c.frequencia || (matched?.frequencia || 'mensal'),
             descricao: matched?.descricao || c.descricao || '',
             observacao: cleanObs,
+            isDepreciacao: c.isDepreciacao || (matched as any)?.isDepreciacao || false,
+            temParcelaAtiva: c.temParcelaAtiva ?? (matched as any)?.temParcelaAtiva ?? false,
           };
         });
-        // Add any missing default custos fixos (e.g., Associação profissional)
+
+        // Add missing default custos fixos and depreciação
         const existingNames = new Set(parsed.custosFixos.map((c: any) => c.nome.toLowerCase()));
-        for (const def of defaultCustosFixos) {
+        for (const def of [...defaultCustosFixos, ...defaultDepreciacao]) {
           if (!existingNames.has(def.nome.toLowerCase())) {
             parsed.custosFixos.push({ ...def });
           }
         }
+
+        // If we migrated items with values to reservas, add them
+        if (migratedToReservas.length > 0 && !parsed.reservasEstrategicas) {
+          parsed.reservasEstrategicas = [...defaultReservasEstrategicas];
+        }
       }
+
       // Migrate custos variáveis
       if (parsed.custosVariaveis) {
         parsed.custosVariaveis = parsed.custosVariaveis.map((c: any) => {
@@ -233,7 +282,6 @@ export function loadData(): DadosPrecificacao {
             descricao: matched?.descricao || c.descricao || '',
           };
         });
-        // Add any missing default custos variáveis
         const existingNames = new Set(parsed.custosVariaveis.map((c: any) => c.nome.toLowerCase()));
         for (const def of defaultCustosVariaveis) {
           if (!existingNames.has(def.nome.toLowerCase())) {
@@ -241,6 +289,20 @@ export function loadData(): DadosPrecificacao {
           }
         }
       }
+
+      // Initialize reservas if not present
+      if (!parsed.reservasEstrategicas) {
+        parsed.reservasEstrategicas = [...defaultReservasEstrategicas];
+      } else {
+        // Add missing default reservas
+        const existingNames = new Set(parsed.reservasEstrategicas.map((r: any) => r.nome.toLowerCase()));
+        for (const def of defaultReservasEstrategicas) {
+          if (!existingNames.has(def.nome.toLowerCase())) {
+            parsed.reservasEstrategicas.push({ ...def });
+          }
+        }
+      }
+
       return { ...defaultData, ...parsed };
     }
   } catch (e) {
@@ -277,7 +339,6 @@ export function loadLead(): LeadData | null {
 export function saveLead(lead: LeadData): void {
   try {
     localStorage.setItem(LEAD_KEY, JSON.stringify(lead));
-    // Also add to leads list for export
     const list = loadLeadsList();
     const exists = list.find(l => l.email === lead.email);
     if (!exists) {
@@ -326,14 +387,43 @@ export function getValorMensal(custo: { valor: number; frequencia: FrequenciaCus
   return custo.frequencia === 'anual' ? custo.valor / 12 : custo.valor;
 }
 
+// --- BLOCO 1: Custos Operacionais (sem depreciação) ---
+
+/** Total custos fixos operacionais (exclui depreciação) */
+export function calcularTotalCustosOperacionais(custos: CustoFixo[]): number {
+  return custos
+    .filter(c => !c.isDepreciacao)
+    .reduce((sum, c) => sum + getValorMensal(c), 0);
+}
+
+// --- BLOCO 2: Depreciação / Amortização ---
+
+/** Total depreciação mensal (somente itens sem parcela ativa) */
+export function calcularTotalDepreciacao(custos: CustoFixo[]): number {
+  return custos
+    .filter(c => c.isDepreciacao && !c.temParcelaAtiva)
+    .reduce((sum, c) => sum + getValorMensal(c), 0);
+}
+
+// --- BLOCO 3: Reservas Estratégicas ---
+
+/** Total reservas estratégicas mensais */
+export function calcularTotalReservas(reservas: ReservaEstrategica[]): number {
+  return reservas.reduce((sum, r) => sum + getValorMensal(r), 0);
+}
+
+// --- Combined calculations ---
+
+/** Total custos fixos (operacionais + depreciação efetiva) — for backward compat */
 export function calcularTotalCustosFixos(custos: CustoFixo[]): number {
-  return custos.reduce((sum, c) => sum + getValorMensal(c), 0);
+  return calcularTotalCustosOperacionais(custos) + calcularTotalDepreciacao(custos);
 }
 
 export function calcularTotalCustosVariaveis(custos: CustoVariavel[]): number {
   return custos.reduce((sum, c) => sum + getValorMensal(c), 0);
 }
 
+/** Custo Total Mensal = Custos Operacionais + Depreciação + Custos Variáveis (SEM reservas) */
 export function calcularCustoTotalMensal(data: DadosPrecificacao): number {
   return calcularTotalCustosFixos(data.custosFixos) + calcularTotalCustosVariaveis(data.custosVariaveis);
 }
@@ -348,10 +438,12 @@ export function calcularCustoVariavelPorSessao(data: DadosPrecificacao): number 
   return calcularTotalCustosVariaveis(data.custosVariaveis) / data.sessoesMeta;
 }
 
+/** Custo por Sessão = (Custos Operacionais + Depreciação + Variáveis) ÷ Sessões */
 export function calcularCustoTotalPorSessao(data: DadosPrecificacao): number {
   return calcularCustoFixoPorSessao(data) + calcularCustoVariavelPorSessao(data);
 }
 
+/** Preço com margem = Custo por Sessão × (1 + margem) */
 export function calcularPrecoMinimo(data: DadosPrecificacao): number {
   const custoTotal = calcularCustoTotalPorSessao(data);
   return custoTotal * (1 + data.margemLucro);
@@ -362,6 +454,30 @@ export function calcularMargemDoPreco(data: DadosPrecificacao, preco: number): n
   const custoTotal = calcularCustoTotalPorSessao(data);
   if (custoTotal === 0) return preco > 0 ? 1 : 0;
   return (preco - custoTotal) / custoTotal;
+}
+
+// --- LUCRO: duas camadas ---
+
+/** Lucro Operacional = Receita - (Custos Operacionais + Depreciação + Variáveis) */
+export function calcularLucroOperacional(data: DadosPrecificacao, precoSessao: number): number {
+  const receita = precoSessao * data.sessoesMeta;
+  const custoTotal = calcularCustoTotalMensal(data);
+  return receita - custoTotal;
+}
+
+/** Lucro Disponível = Lucro Operacional - Reservas Estratégicas */
+export function calcularLucroDisponivel(data: DadosPrecificacao, precoSessao: number): number {
+  const lucroOp = calcularLucroOperacional(data, precoSessao);
+  const reservas = calcularTotalReservas(data.reservasEstrategicas);
+  return lucroOp - reservas;
+}
+
+/** Percentual do lucro destinado a reservas */
+export function calcularPercentualReservas(data: DadosPrecificacao, precoSessao: number): number {
+  const lucroOp = calcularLucroOperacional(data, precoSessao);
+  if (lucroOp <= 0) return 0;
+  const reservas = calcularTotalReservas(data.reservasEstrategicas);
+  return (reservas / lucroOp) * 100;
 }
 
 export function calcularPrecoServico(data: DadosPrecificacao, servico: TipoServico): number {
@@ -377,20 +493,26 @@ export function calcularPrecoPlano(precoUnitario: number, plano: PlanoTratamento
 export function simularPreco(data: DadosPrecificacao, precoSessao: number): {
   receitaMensal: number;
   custoTotal: number;
-  lucroBruto: number;
+  lucroOperacional: number;
+  reservas: number;
+  lucroDisponivel: number;
   margem: number;
   viavel: boolean;
 } {
   const receitaMensal = precoSessao * data.sessoesMeta;
   const custoTotal = calcularCustoTotalMensal(data);
-  const lucroBruto = receitaMensal - custoTotal;
-  const margem = receitaMensal > 0 ? (lucroBruto / receitaMensal) * 100 : 0;
+  const lucroOperacional = receitaMensal - custoTotal;
+  const reservas = calcularTotalReservas(data.reservasEstrategicas);
+  const lucroDisponivel = lucroOperacional - reservas;
+  const margem = receitaMensal > 0 ? (lucroOperacional / receitaMensal) * 100 : 0;
   return {
     receitaMensal,
     custoTotal,
-    lucroBruto,
+    lucroOperacional,
+    reservas,
+    lucroDisponivel,
     margem,
-    viavel: lucroBruto >= 0,
+    viavel: lucroOperacional >= 0,
   };
 }
 
@@ -414,6 +536,72 @@ export function calcularTaxaOcupacao(data: DadosPrecificacao): number {
 
 export function calcularValorHora(data: DadosPrecificacao, precoSessao: number, duracaoMinutos: number = 50): number {
   return (precoSessao / duracaoMinutos) * 60;
+}
+
+// ===== ALERTAS INTELIGENTES =====
+
+export interface AlertaFinanceiro {
+  tipo: 'warning' | 'info' | 'danger';
+  mensagem: string;
+  detalhe: string;
+}
+
+export function gerarAlertas(data: DadosPrecificacao, precoSessao: number): AlertaFinanceiro[] {
+  const alertas: AlertaFinanceiro[] = [];
+
+  // 1. Depreciação com parcela ativa
+  const depComParcela = data.custosFixos.filter(c => c.isDepreciacao && c.temParcelaAtiva && c.valor > 0);
+  if (depComParcela.length > 0) {
+    alertas.push({
+      tipo: 'danger',
+      mensagem: 'Equipamento com parcela ativa não pode ter depreciação',
+      detalhe: `${depComParcela.map(c => c.nome).join(', ')} — enquanto houver parcela ativa, a depreciação é bloqueada automaticamente.`,
+    });
+  }
+
+  // 2. Lucro positivo sem reservas
+  const lucroOp = calcularLucroOperacional(data, precoSessao);
+  const totalReservas = calcularTotalReservas(data.reservasEstrategicas);
+  if (lucroOp > 0 && totalReservas === 0) {
+    alertas.push({
+      tipo: 'warning',
+      mensagem: 'Seu lucro é positivo, mas você não está formando reservas',
+      detalhe: 'Recomendamos destinar pelo menos 10% a 20% do lucro operacional para reservas estratégicas (emergência, férias, expansão).',
+    });
+  }
+
+  // 3. Lucro insuficiente para cobrir reservas
+  if (lucroOp > 0 && totalReservas > lucroOp) {
+    alertas.push({
+      tipo: 'danger',
+      mensagem: 'Suas reservas excedem o lucro operacional',
+      detalhe: `Lucro operacional: ${formatarMoeda(lucroOp)} | Reservas: ${formatarMoeda(totalReservas)}. Reduza as reservas ou aumente o preço.`,
+    });
+  }
+
+  // 4. Margem muito baixa
+  const custoSessao = calcularCustoTotalPorSessao(data);
+  if (custoSessao > 0 && precoSessao > 0) {
+    const margem = ((precoSessao - custoSessao) / custoSessao) * 100;
+    if (margem < 15) {
+      alertas.push({
+        tipo: 'danger',
+        mensagem: 'Margem de lucro arriscada (abaixo de 15%)',
+        detalhe: `Sua margem atual é de ${margem.toFixed(1)}%. Abaixo de 15% qualquer imprevisto pode gerar prejuízo.`,
+      });
+    }
+  }
+
+  // 5. Preço abaixo do custo
+  if (precoSessao > 0 && precoSessao < custoSessao) {
+    alertas.push({
+      tipo: 'danger',
+      mensagem: 'Preço abaixo do custo por sessão',
+      detalhe: `Você está cobrando ${formatarMoeda(precoSessao)} mas seu custo é ${formatarMoeda(custoSessao)}. Cada sessão gera prejuízo.`,
+    });
+  }
+
+  return alertas;
 }
 
 // ===== FORMATTERS =====

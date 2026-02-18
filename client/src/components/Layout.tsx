@@ -20,6 +20,7 @@ import {
   UserCircle,
   ClipboardList,
   Users,
+  ShieldCheck,
 } from 'lucide-react';
 import { useAuth } from '@/_core/hooks/useAuth';
 import { Button } from '@/components/ui/button';
@@ -33,6 +34,7 @@ const navItems = [
   { path: '/servicos', label: 'Serviços', icon: Briefcase },
   { path: '/simulacao', label: 'Simulação', icon: TrendingUp },
   { path: '/indicadores', label: 'Indicadores', icon: Target },
+  { path: '/reservas', label: 'Reservas', icon: ShieldCheck },
   { path: '/relatorios', label: 'Relatórios', icon: FileText },
   { path: '/configuracoes', label: 'Configurações', icon: Settings },
 ];

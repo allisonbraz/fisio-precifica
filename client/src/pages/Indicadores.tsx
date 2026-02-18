@@ -29,8 +29,10 @@ import PageHeader from '@/components/PageHeader';
 import StatCard from '@/components/StatCard';
 import { useData } from '@/contexts/DataContext';
 import {
-  calcularTotalCustosFixos,
+  calcularTotalCustosOperacionais,
+  calcularTotalDepreciacao,
   calcularTotalCustosVariaveis,
+  calcularTotalReservas,
   calcularCustoTotalMensal,
   calcularPrecoMinimo,
   calcularTaxaOcupacao,
@@ -81,16 +83,20 @@ export default function Indicadores() {
   const { data } = useData();
 
   const metrics = useMemo(() => {
-    const custoFixoTotal = calcularTotalCustosFixos(data.custosFixos);
+    const custoOperacional = calcularTotalCustosOperacionais(data.custosFixos);
+    const custoDepreciacao = calcularTotalDepreciacao(data.custosFixos);
     const custoVarTotal = calcularTotalCustosVariaveis(data.custosVariaveis);
+    const totalReservas = calcularTotalReservas(data.reservasEstrategicas);
+    const custoFixoTotal = custoOperacional + custoDepreciacao;
     const custoMensal = calcularCustoTotalMensal(data);
     const precoPorSessao = calcularPrecoMinimo(data);
     const taxaOcupacao = calcularTaxaOcupacao(data);
     const pontoEquilibrio = calcularPontoEquilibrio(data, precoPorSessao);
     const valorHora = calcularValorHora(data, precoPorSessao);
     const receitaPotencial = precoPorSessao * data.sessoesMeta;
-    const lucroPotencial = receitaPotencial - custoMensal;
-    const margemLiquida = receitaPotencial > 0 ? (lucroPotencial / receitaPotencial) * 100 : 0;
+    const lucroOperacional = receitaPotencial - custoMensal;
+    const lucroDisponivel = lucroOperacional - totalReservas;
+    const margemLiquida = receitaPotencial > 0 ? (lucroOperacional / receitaPotencial) * 100 : 0;
     const custoFixoPerc = custoMensal > 0 ? (custoFixoTotal / custoMensal) * 100 : 0;
     const custoVarPerc = custoMensal > 0 ? (custoVarTotal / custoMensal) * 100 : 0;
     const capacidadeMaxima = data.diasUteis * data.sessoesporDia;
@@ -116,7 +122,7 @@ export default function Indicadores() {
 
     return {
       custoFixoTotal, custoVarTotal, custoMensal, precoPorSessao, taxaOcupacao,
-      pontoEquilibrio, valorHora, receitaPotencial, lucroPotencial, margemLiquida,
+      pontoEquilibrio, valorHora, receitaPotencial, lucroOperacional, lucroDisponivel, totalReservas, margemLiquida,
       custoFixoPerc, custoVarPerc, capacidadeMaxima, horasMensais, faturamentoPorHora,
       custoFixoPorSessao, custoVarPorSessao, roiMarketing, scores, saudeFinanceira,
     };

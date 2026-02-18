@@ -74,7 +74,7 @@ export default function Simulacao() {
         preco: p,
         receita: Math.round(sim.receitaMensal),
         custo: Math.round(sim.custoTotal),
-        lucro: Math.round(sim.lucroBruto),
+        lucro: Math.round(sim.lucroOperacional),
       });
     }
     return points;
@@ -246,9 +246,9 @@ export default function Simulacao() {
               <p className="text-lg font-mono font-bold text-foreground">{formatarMoeda(customSim.receitaMensal)}</p>
             </div>
             <div className="bg-muted/30 rounded-xl p-3">
-              <p className="text-xs text-muted-foreground">Lucro Bruto</p>
-              <p className={`text-lg font-mono font-bold ${customSim.lucroBruto >= 0 ? 'text-sage-dark' : 'text-destructive'}`}>
-                {formatarMoeda(customSim.lucroBruto)}
+              <p className="text-xs text-muted-foreground">Lucro Operacional</p>
+              <p className={`text-lg font-mono font-bold ${customSim.lucroOperacional >= 0 ? 'text-sage-dark' : 'text-destructive'}`}>
+                {formatarMoeda(customSim.lucroOperacional)}
               </p>
               <p className="text-[10px] text-muted-foreground mt-0.5">O que sobra para reinvestir, reserva e crescer</p>
             </div>
@@ -352,8 +352,8 @@ export default function Simulacao() {
                   </div>
                   <div className="flex justify-between text-xs">
                     <span className="text-muted-foreground">Lucro:</span>
-                    <span className={`font-mono font-medium ${cenario.data.lucroBruto >= 0 ? 'text-sage-dark' : 'text-destructive'}`}>
-                      {formatarMoeda(cenario.data.lucroBruto)}
+                    <span className={`font-mono font-medium ${cenario.data.lucroOperacional >= 0 ? 'text-sage-dark' : 'text-destructive'}`}>
+                      {formatarMoeda(cenario.data.lucroOperacional)}
                     </span>
                   </div>
                   <div className="flex justify-between text-xs">
@@ -485,8 +485,8 @@ export default function Simulacao() {
                   </td>
                   <td className="px-4 py-3 text-right font-mono">{formatarMoeda(sim.receitaMensal)}</td>
                   <td className="px-4 py-3 text-right font-mono">{formatarMoeda(sim.custoTotal)}</td>
-                  <td className={`px-4 py-3 text-right font-mono font-medium ${sim.lucroBruto >= 0 ? 'text-sage-dark' : 'text-destructive'}`}>
-                    {formatarMoeda(sim.lucroBruto)}
+                  <td className={`px-4 py-3 text-right font-mono font-medium ${sim.lucroOperacional >= 0 ? 'text-sage-dark' : 'text-destructive'}`}>
+                    {formatarMoeda(sim.lucroOperacional)}
                   </td>
                   <td className="px-4 py-3 text-right font-mono">{sim.margem.toFixed(1)}%</td>
                   <td className="px-4 py-3 text-center">

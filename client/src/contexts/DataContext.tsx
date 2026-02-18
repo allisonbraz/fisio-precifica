@@ -1,8 +1,6 @@
 /**
- * FisioPrecifica Data Context v2
- * Design: Warm Professional — Organic Modernism
- * Provides global data state management with localStorage persistence
- * Includes lead gate, professional profile, planos de tratamento
+ * FisioPrecifica Data Context v3
+ * Evolução Estrutural: Custos Operacionais / Depreciação / Reservas Estratégicas
  */
 
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
@@ -10,6 +8,7 @@ import {
   DadosPrecificacao,
   CustoFixo,
   CustoVariavel,
+  ReservaEstrategica,
   TipoServico,
   PlanoTratamento,
   RegistroMensal,
@@ -32,28 +31,41 @@ interface DataContextType {
   isRegistered: boolean;
   registerLead: (lead: LeadData) => void;
   updatePerfil: (updates: Partial<PerfilProfissional>) => void;
+  // Custos Fixos (operacionais + depreciação)
   updateCustoFixo: (id: string, updates: Partial<CustoFixo>) => void;
   addCustoFixo: (custo: Omit<CustoFixo, 'id'>) => void;
   zeroCustoFixo: (id: string) => void;
+  // Custos Variáveis
   updateCustoVariavel: (id: string, updates: Partial<CustoVariavel>) => void;
   addCustoVariavel: (custo: Omit<CustoVariavel, 'id'>) => void;
   zeroCustoVariavel: (id: string) => void;
+  // Reservas Estratégicas
+  updateReserva: (id: string, updates: Partial<ReservaEstrategica>) => void;
+  addReserva: (reserva: Omit<ReservaEstrategica, 'id'>) => void;
+  zeroReserva: (id: string) => void;
+  // Bulk
   zerarTodosCustos: () => void;
+  zerarTodasReservas: () => void;
+  // Parameters
   updateSessoesMeta: (value: number) => void;
   updateMargemLucro: (value: number) => void;
   updatePrecoDefinido: (value: number) => void;
   updateHorasTrabalho: (value: number) => void;
   updateDiasUteis: (value: number) => void;
   updateSessoesporDia: (value: number) => void;
+  // Serviços
   addTipoServico: (servico: Omit<TipoServico, 'id'>) => void;
   updateTipoServico: (id: string, updates: Partial<TipoServico>) => void;
   removeTipoServico: (id: string) => void;
+  // Planos de Tratamento
   addPlanoTratamento: (plano: Omit<PlanoTratamento, 'id'>) => void;
   updatePlanoTratamento: (id: string, updates: Partial<PlanoTratamento>) => void;
   removePlanoTratamento: (id: string) => void;
+  // Registros Mensais
   addRegistroMensal: (registro: Omit<RegistroMensal, 'id'>) => void;
   updateRegistroMensal: (id: string, updates: Partial<RegistroMensal>) => void;
   removeRegistroMensal: (id: string) => void;
+  // Global
   resetAllData: () => void;
   importData: (data: DadosPrecificacao) => void;
 }
@@ -84,6 +96,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  // --- Custos Fixos ---
   const updateCustoFixo = useCallback((id: string, updates: Partial<CustoFixo>) => {
     setData(prev => ({
       ...prev,
@@ -105,6 +118,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     }));
   }, []);
 
+  // --- Custos Variáveis ---
   const updateCustoVariavel = useCallback((id: string, updates: Partial<CustoVariavel>) => {
     setData(prev => ({
       ...prev,
@@ -126,6 +140,29 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     }));
   }, []);
 
+  // --- Reservas Estratégicas ---
+  const updateReserva = useCallback((id: string, updates: Partial<ReservaEstrategica>) => {
+    setData(prev => ({
+      ...prev,
+      reservasEstrategicas: prev.reservasEstrategicas.map(r => r.id === id ? { ...r, ...updates } : r),
+    }));
+  }, []);
+
+  const addReserva = useCallback((reserva: Omit<ReservaEstrategica, 'id'>) => {
+    setData(prev => ({
+      ...prev,
+      reservasEstrategicas: [...prev.reservasEstrategicas, { ...reserva, id: generateId() }],
+    }));
+  }, []);
+
+  const zeroReserva = useCallback((id: string) => {
+    setData(prev => ({
+      ...prev,
+      reservasEstrategicas: prev.reservasEstrategicas.map(r => r.id === id ? { ...r, valor: 0 } : r),
+    }));
+  }, []);
+
+  // --- Bulk ---
   const zerarTodosCustos = useCallback(() => {
     setData(prev => ({
       ...prev,
@@ -134,6 +171,14 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     }));
   }, []);
 
+  const zerarTodasReservas = useCallback(() => {
+    setData(prev => ({
+      ...prev,
+      reservasEstrategicas: prev.reservasEstrategicas.map(r => ({ ...r, valor: 0 })),
+    }));
+  }, []);
+
+  // --- Parameters ---
   const updateSessoesMeta = useCallback((value: number) => {
     setData(prev => ({ ...prev, sessoesMeta: value }));
   }, []);
@@ -158,6 +203,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     setData(prev => ({ ...prev, sessoesporDia: value }));
   }, []);
 
+  // --- Serviços ---
   const addTipoServico = useCallback((servico: Omit<TipoServico, 'id'>) => {
     setData(prev => ({
       ...prev,
@@ -179,6 +225,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     }));
   }, []);
 
+  // --- Planos de Tratamento ---
   const addPlanoTratamento = useCallback((plano: Omit<PlanoTratamento, 'id'>) => {
     setData(prev => ({
       ...prev,
@@ -200,6 +247,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     }));
   }, []);
 
+  // --- Registros Mensais ---
   const addRegistroMensal = useCallback((registro: Omit<RegistroMensal, 'id'>) => {
     setData(prev => ({
       ...prev,
@@ -221,6 +269,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     }));
   }, []);
 
+  // --- Global ---
   const resetAllData = useCallback(() => {
     const fresh = resetData();
     setData(fresh);
@@ -244,7 +293,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       updateCustoVariavel,
       addCustoVariavel,
       zeroCustoVariavel,
+      updateReserva,
+      addReserva,
+      zeroReserva,
       zerarTodosCustos,
+      zerarTodasReservas,
       updateSessoesMeta,
       updateMargemLucro,
       updatePrecoDefinido,

@@ -17,6 +17,7 @@ import Relatorios from "./pages/Relatorios";
 import Configuracoes from "./pages/Configuracoes";
 import Perfil from "./pages/Perfil";
 import Leads from "./pages/Leads";
+import Reservas from "./pages/Reservas";
 
 function Router() {
   return (
@@ -29,6 +30,7 @@ function Router() {
         <Route path="/simulacao" component={Simulacao} />
         <Route path="/indicadores" component={Indicadores} />
         <Route path="/relatorios" component={Relatorios} />
+        <Route path="/reservas" component={Reservas} />
         <Route path="/configuracoes" component={Configuracoes} />
         <Route path="/perfil" component={Perfil} />
         <Route path="/admin/leads" component={Leads} />

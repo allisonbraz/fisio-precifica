@@ -29,8 +29,10 @@ import PageHeader from '@/components/PageHeader';
 import CurrencyInput from '@/components/CurrencyInput';
 import { useData } from '@/contexts/DataContext';
 import {
-  calcularTotalCustosFixos,
+  calcularTotalCustosOperacionais,
+  calcularTotalDepreciacao,
   calcularTotalCustosVariaveis,
+  calcularTotalReservas,
   calcularCustoFixoPorSessao,
   calcularCustoVariavelPorSessao,
   calcularCustoTotalPorSessao,
@@ -96,18 +98,24 @@ export default function Precificacao() {
   const [activeMode, setActiveMode] = useState<'margem' | 'preco'>('margem');
 
   const metrics = useMemo(() => {
-    const custoFixoTotal = calcularTotalCustosFixos(data.custosFixos);
+    const custoOperacional = calcularTotalCustosOperacionais(data.custosFixos);
+    const custoDepreciacao = calcularTotalDepreciacao(data.custosFixos);
     const custoVarTotal = calcularTotalCustosVariaveis(data.custosVariaveis);
+    const totalReservas = calcularTotalReservas(data.reservasEstrategicas);
     const custoFixoSessao = calcularCustoFixoPorSessao(data);
     const custoVarSessao = calcularCustoVariavelPorSessao(data);
     const custoTotalSessao = calcularCustoTotalPorSessao(data);
     const precoPorSessao = calcularPrecoMinimo(data);
     const pontoEquilibrio = calcularPontoEquilibrio(data, precoPorSessao);
     const valorHora = calcularValorHora(data, precoPorSessao);
+    const receitaPotencial = precoPorSessao * data.sessoesMeta;
+    const lucroOperacional = receitaPotencial - (custoOperacional + custoDepreciacao + custoVarTotal);
+    const lucroDisponivel = lucroOperacional - totalReservas;
 
     return {
-      custoFixoTotal, custoVarTotal, custoFixoSessao, custoVarSessao,
-      custoTotalSessao, precoPorSessao, pontoEquilibrio, valorHora,
+      custoOperacional, custoDepreciacao, custoVarTotal, totalReservas,
+      custoFixoSessao, custoVarSessao, custoTotalSessao, precoPorSessao,
+      pontoEquilibrio, valorHora, receitaPotencial, lucroOperacional, lucroDisponivel,
     };
   }, [data]);
 
@@ -378,7 +386,7 @@ export default function Precificacao() {
             <div className="bg-card rounded-xl border border-border p-4">
               <p className="text-xs text-muted-foreground">Custo fixo/sessão</p>
               <p className="text-lg font-mono font-bold text-terracotta mt-1">{formatarMoeda(metrics.custoFixoSessao)}</p>
-              <p className="text-xs text-muted-foreground mt-1">{formatarMoeda(metrics.custoFixoTotal)} ÷ {data.sessoesMeta}</p>
+              <p className="text-xs text-muted-foreground mt-1">{formatarMoeda((metrics.custoOperacional + metrics.custoDepreciacao))} ÷ {data.sessoesMeta}</p>
             </div>
             <div className="bg-card rounded-xl border border-border p-4">
               <p className="text-xs text-muted-foreground">Custo variável/sessão</p>

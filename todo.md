@@ -30,3 +30,20 @@
 - [x] 5. Explicar Lucro: "O que sobra para: Reinvestir, Criar reserva, Crescer, Dividendos"
 - [x] 6. Faixas de margem na Precificação: <15% arriscada, 15-30% saudável, >30% excelente
 - [x] 6b. Corrigir migração de observações antigas (stale) nos custos
+
+## Evolução Estrutural v4 — Separação Custos vs Reservas
+- [x] Atualizar modelos de dados no store: adicionar Reservas Estratégicas, campo temParcelaAtiva nos custos
+- [x] Criar nova fórmula: Custo por Sessão = (Custos Operacionais + Depreciação) ÷ Sessões (sem reservas)
+- [x] Implementar Lucro Operacional = Receita - (Custos Operacionais + Depreciação)
+- [x] Implementar Lucro Disponível = Lucro Operacional - Reservas Estratégicas
+- [x] Adicionar lógica condicional de Depreciação vs Parcela Ativa (bloquear depreciação se parcela ativa)
+- [x] Criar seção de Reservas Estratégicas (fundo reposição, cursos, mentorias, emergência, férias, expansão)
+- [x] Implementar pergunta condicional ao cadastrar: "Este valor é obrigatório para funcionamento?"
+- [x] Implementar 3 alertas automáticos (reserva como custo, lucro sem reservas, parcela + depreciação)
+- [x] Atualizar Score de Saúde Financeira com % do lucro destinado a reservas
+- [x] Atualizar Home/Dashboard com Lucro Operacional e Lucro Disponível
+- [x] Atualizar Precificação com nova fórmula
+- [x] Atualizar Simulação com nova lógica
+- [x] Atualizar Indicadores com novas métricas
+- [x] Atualizar Relatório PDF com Composição do Lucro e Reservas
+- [x] Não alterado: UI visual, Serviços, Planos de Tratamento, Relatórios Mensais

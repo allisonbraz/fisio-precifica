@@ -24,8 +24,10 @@ import { Textarea } from '@/components/ui/textarea';
 import PageHeader from '@/components/PageHeader';
 import { useData } from '@/contexts/DataContext';
 import {
-  calcularTotalCustosFixos,
+  calcularTotalCustosOperacionais,
+  calcularTotalDepreciacao,
   calcularTotalCustosVariaveis,
+  calcularTotalReservas,
   calcularCustoTotalMensal,
   calcularPrecoMinimo,
   calcularCustoTotalPorSessao,
@@ -69,8 +71,11 @@ export default function Perfil() {
     setGenerating(true);
 
     try {
-      const custoFixoTotal = calcularTotalCustosFixos(data.custosFixos);
+      const custoOperacional = calcularTotalCustosOperacionais(data.custosFixos);
+      const custoDepreciacao = calcularTotalDepreciacao(data.custosFixos);
       const custoVarTotal = calcularTotalCustosVariaveis(data.custosVariaveis);
+      const totalReservas = calcularTotalReservas(data.reservasEstrategicas);
+      const custoFixoTotal = custoOperacional + custoDepreciacao;
       const custoMensal = calcularCustoTotalMensal(data);
       const precoPorSessao = calcularPrecoMinimo(data); // preço = custo + margem
       const custoSessao = calcularCustoTotalPorSessao(data);
@@ -78,8 +83,9 @@ export default function Perfil() {
       const pontoEquilibrio = calcularPontoEquilibrio(data, precoPorSessao);
       const valorHora = calcularValorHora(data, precoPorSessao);
       const receitaPotencial = precoPorSessao * data.sessoesMeta;
-      const lucroPotencial = receitaPotencial - custoMensal;
-      const margemLiquida = receitaPotencial > 0 ? (lucroPotencial / receitaPotencial) * 100 : 0;
+      const lucroOperacional = receitaPotencial - custoMensal;
+      const lucroDisponivel = lucroOperacional - totalReservas;
+      const margemLiquida = receitaPotencial > 0 ? (lucroOperacional / receitaPotencial) * 100 : 0;
       const dataAtual = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
 
       // Build custos fixos table rows
@@ -200,8 +206,8 @@ export default function Perfil() {
           <div class="metric-value" style="color:#7c9a82;">${formatarMoeda(receitaPotencial)}</div>
         </div>
         <div class="metric">
-          <div class="metric-label">Lucro Potencial</div>
-          <div class="metric-value" style="color:${lucroPotencial >= 0 ? '#7c9a82' : '#c2785c'};">${formatarMoeda(lucroPotencial)}</div>
+          <div class="metric-label">Lucro Operacional</div>
+          <div class="metric-value" style="color:${lucroOperacional >= 0 ? '#7c9a82' : '#c2785c'};">${formatarMoeda(lucroOperacional)}</div>
         </div>
         <div class="metric">
           <div class="metric-label">Margem Líquida</div>
@@ -299,6 +305,48 @@ export default function Perfil() {
       </table>
     </div>
     ` : ''}
+
+    ${totalReservas > 0 ? `
+    <div class="section">
+      <div class="section-title">Reservas Estratégicas</div>
+      <table>
+        <thead>
+          <tr>
+            <th>Reserva</th>
+            <th style="text-align:right;">Valor Mensal</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${data.reservasEstrategicas.filter(r => r.valor > 0).map(r => `
+            <tr>
+              <td style="padding:6px 10px;border-bottom:1px solid #e5e0d8;font-size:12px;">${r.nome}</td>
+              <td style="padding:6px 10px;border-bottom:1px solid #e5e0d8;font-size:12px;text-align:right;font-family:monospace;">${formatarMoeda(r.valor)}</td>
+            </tr>
+          `).join('')}
+          <tr style="background:#f5f0eb;font-weight:bold;">
+            <td style="padding:8px 10px;font-size:12px;">TOTAL RESERVAS</td>
+            <td style="padding:8px 10px;font-size:12px;text-align:right;font-family:monospace;color:#7c9a82;">${formatarMoeda(totalReservas)}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    ` : ''}
+
+    <div class="section">
+      <div class="section-title">Composição do Lucro</div>
+      <div class="highlight-box" style="background:linear-gradient(135deg,#f5f0eb,#f0f5f1);">
+        <div style="font-size:13px;line-height:2;">
+          <div style="display:flex;justify-content:space-between;"><span>Receita Potencial</span><strong style="font-family:monospace;color:#7c9a82;">${formatarMoeda(receitaPotencial)}</strong></div>
+          <div style="display:flex;justify-content:space-between;"><span>− Custos Operacionais</span><strong style="font-family:monospace;color:#c2785c;">−${formatarMoeda(custoOperacional)}</strong></div>
+          <div style="display:flex;justify-content:space-between;"><span>− Depreciação/Amortização</span><strong style="font-family:monospace;color:#c2785c;">−${formatarMoeda(custoDepreciacao)}</strong></div>
+          <div style="display:flex;justify-content:space-between;"><span>− Custos Variáveis</span><strong style="font-family:monospace;color:#d4a853;">−${formatarMoeda(custoVarTotal)}</strong></div>
+          <div style="border-top:2px solid #e5e0d8;padding-top:4px;display:flex;justify-content:space-between;"><strong>= Lucro Operacional</strong><strong style="font-family:monospace;color:${lucroOperacional >= 0 ? '#7c9a82' : '#c2785c'};">${formatarMoeda(lucroOperacional)}</strong></div>
+          ${totalReservas > 0 ? `<div style="display:flex;justify-content:space-between;"><span>− Reservas Estratégicas</span><strong style="font-family:monospace;color:#7c9a82;">−${formatarMoeda(totalReservas)}</strong></div>` : ''}
+          <div style="border-top:2px solid #c2785c;padding-top:4px;display:flex;justify-content:space-between;"><strong>= Lucro Disponível</strong><strong style="font-family:monospace;font-size:16px;color:${lucroDisponivel >= 0 ? '#7c9a82' : '#c2785c'};">${formatarMoeda(lucroDisponivel)}</strong></div>
+          <div style="font-size:10px;color:#8a7e74;margin-top:4px;">O que sobra para: Reinvestir · Criar reserva · Crescer · Dividendos</div>
+        </div>
+      </div>
+    </div>
 
     <div class="section">
       <div class="section-title">Parâmetros Utilizados</div>
