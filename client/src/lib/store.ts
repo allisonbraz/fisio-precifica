@@ -94,11 +94,11 @@ const LEADS_LIST_KEY = 'fisioprecifica_leads_list';
 // ===== DEFAULT DATA =====
 
 const defaultCustosFixos: CustoFixo[] = [
-  { id: '1', nome: 'Aluguel do consultório/sala', valor: 0, frequencia: 'mensal', observacao: '', descricao: 'Valor mensal do aluguel do espaço onde você atende. Ex: R$ 1.500/mês por uma sala comercial.' },
-  { id: '2', nome: 'CREFITO ou outro conselho de classe', valor: 0, frequencia: 'anual', observacao: '', descricao: 'Anuidade do conselho profissional (CREFITO, CRM, etc). Ex: R$ 600/ano. Será dividido por 12 automaticamente.' },
-  { id: '3', nome: 'Associação profissional', valor: 0, frequencia: 'anual', observacao: '', descricao: 'Anuidade de associações como ABRAFITO, ABF, COFFITO ou sindicatos. Ex: R$ 360/ano.' },
-  { id: '4', nome: 'Salários + Encargos', valor: 0, frequencia: 'mensal', observacao: '', descricao: 'Folha de pagamento de funcionários (recepcionista, auxiliar, etc). Ex: R$ 2.000/mês + encargos.' },
-  { id: '5', nome: 'Pró-labore', valor: 0, frequencia: 'mensal', observacao: '', descricao: 'Sua retirada mensal como sócio/proprietário. Ex: R$ 5.000/mês é o mínimo que você precisa receber.' },
+  { id: '1', nome: 'Pró-labore', valor: 0, frequencia: 'mensal', observacao: '', descricao: 'Sua retirada mensal como sócio/proprietário. Ex: R$ 5.000/mês é o mínimo que você precisa receber.' },
+  { id: '2', nome: 'Salários + Encargos', valor: 0, frequencia: 'mensal', observacao: '', descricao: 'Folha de pagamento de funcionários (recepcionista, auxiliar, etc). Ex: R$ 2.000/mês + encargos.' },
+  { id: '3', nome: 'CREFITO ou outro conselho de classe', valor: 0, frequencia: 'anual', observacao: '', descricao: 'Anuidade do conselho profissional (CREFITO, CRM, etc). Ex: R$ 600/ano. Será dividido por 12 automaticamente.' },
+  { id: '4', nome: 'Associação profissional', valor: 0, frequencia: 'anual', observacao: '', descricao: 'Anuidade de associações como ABRAFITO, ABF, COFFITO ou sindicatos. Ex: R$ 360/ano.' },
+  { id: '5', nome: 'Aluguel do consultório/sala', valor: 0, frequencia: 'mensal', observacao: '', descricao: 'Valor mensal do aluguel do espaço onde você atende. Ex: R$ 1.500/mês por uma sala comercial.' },
   { id: '6', nome: 'Contador/Contabilidade', valor: 0, frequencia: 'mensal', observacao: '', descricao: 'Honorários do escritório de contabilidade. Ex: R$ 300 a R$ 800/mês dependendo do porte.' },
   { id: '7', nome: 'Software de Gestão', valor: 0, frequencia: 'mensal', observacao: '', descricao: 'Assinatura de sistemas como ZenFisio, Fisioclin, etc. Ex: R$ 100 a R$ 300/mês.' },
   { id: '8', nome: 'Depreciação de equipamentos', valor: 0, frequencia: 'mensal', observacao: '', descricao: 'Reserva mensal para reposição de equipamentos. Ex: Maca de R$ 3.600 ÷ 60 meses = R$ 60/mês.' },
@@ -188,8 +188,14 @@ export function loadData(): DadosPrecificacao {
         parsed.planosTratamento = parsed.pacotes;
         delete parsed.pacotes;
       }
-      // Migrate custos fixos: update names, add descriptions, fix frequencies
+      // Migrate custos fixos: update names, add descriptions, fix frequencies, clear stale observacoes
       if (parsed.custosFixos) {
+        // Old default observacoes that should be cleared (they were from the old template)
+        const STALE_OBSERVACOES = new Set([
+          'anuidade ÷ 12 meses', 'anuidade ÷ 12', 'sua retirada mensal',
+          'site, redes sociais', 'atendimento domiciliar',
+          'condomínio + iptu', 'gel, eletrodos, etc.',
+        ]);
         parsed.custosFixos = parsed.custosFixos.map((c: any) => {
           // Check if name needs to be migrated
           const mappedName = CUSTOS_FIXOS_NAME_MAP[c.nome] || c.nome;
@@ -197,11 +203,14 @@ export function loadData(): DadosPrecificacao {
           const defaultById = defaultCustosFixos.find(d => d.id === c.id);
           const defaultByName = findDefaultByName(mappedName, defaultCustosFixos);
           const matched = defaultById || defaultByName;
+          // Clear stale observacoes from old template
+          const cleanObs = (c.observacao && STALE_OBSERVACOES.has(c.observacao.toLowerCase().trim())) ? '' : (c.observacao || '');
           return {
             ...c,
             nome: matched?.nome || mappedName,
             frequencia: c.frequencia || (matched?.frequencia || 'mensal'),
             descricao: matched?.descricao || c.descricao || '',
+            observacao: cleanObs,
           };
         });
         // Add any missing default custos fixos (e.g., Associação profissional)

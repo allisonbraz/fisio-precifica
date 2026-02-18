@@ -176,7 +176,7 @@ export default function Home() {
           <StatCard
             title="Lucro Potencial"
             value={formatarMoeda(metrics.lucroPotencial)}
-            subtitle={metrics.lucroPotencial >= 0 ? 'Viável' : 'Inviável'}
+            subtitle={metrics.lucroPotencial >= 0 ? 'Reinvestir, reserva, crescer' : 'Inviável — revise custos'}
             icon={metrics.lucroPotencial >= 0 ? CheckCircle2 : AlertTriangle}
             variant={metrics.lucroPotencial >= 0 ? 'success' : 'danger'}
           />

@@ -1,10 +1,11 @@
 /**
- * Configurações Page
+ * Configurações Page v2
  * Design: Warm Professional — Organic Modernism
  * App settings, data import/export, and reset
+ * Jornada de trabalho moved to Precificação page
  */
 
-import { useState, useRef } from 'react';
+import { useRef } from 'react';
 import { motion } from 'framer-motion';
 import {
   Settings,
@@ -12,12 +13,9 @@ import {
   Upload,
   RotateCcw,
   AlertTriangle,
-  CheckCircle2,
   Info,
-  Clock,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -35,7 +33,7 @@ import { exportarDados, importarDados } from '@/lib/store';
 import { toast } from 'sonner';
 
 export default function Configuracoes() {
-  const { data, resetAllData, importData, updateHorasTrabalho } = useData();
+  const { data, resetAllData, importData } = useData();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleExport = () => {
@@ -86,42 +84,10 @@ export default function Configuracoes() {
         icon={Settings}
       />
 
-      {/* Work Schedule */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="bg-card rounded-2xl border border-border p-6"
-      >
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-            <Clock className="w-5 h-5 text-primary" />
-          </div>
-          <div>
-            <h3 className="font-heading font-semibold text-foreground">Jornada de Trabalho</h3>
-            <p className="text-sm text-muted-foreground">Configure suas horas de trabalho diárias</p>
-          </div>
-        </div>
-        <div className="max-w-xs">
-          <label className="text-sm font-medium text-foreground mb-1.5 block">Horas por dia</label>
-          <Input
-            type="number"
-            value={data.horasTrabalho}
-            onChange={(e) => updateHorasTrabalho(Math.max(1, parseInt(e.target.value) || 0))}
-            className="rounded-xl font-mono"
-            min={1}
-            max={16}
-          />
-          <p className="text-xs text-muted-foreground mt-1.5">
-            Total mensal: {data.horasTrabalho * data.diasUteis} horas ({data.diasUteis} dias úteis)
-          </p>
-        </div>
-      </motion.div>
-
       {/* Data Management */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
         className="bg-card rounded-2xl border border-border p-6 space-y-5"
       >
         <div className="flex items-center gap-3 mb-2">
@@ -213,7 +179,7 @@ export default function Configuracoes() {
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2 }}
+        transition={{ delay: 0.1 }}
         className="bg-card rounded-2xl border border-border p-6"
       >
         <h3 className="font-heading font-semibold text-foreground mb-3">Sobre o FisioPrecifica</h3>

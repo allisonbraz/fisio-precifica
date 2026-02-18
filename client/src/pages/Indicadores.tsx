@@ -1,7 +1,7 @@
 /**
- * Indicadores Page v2
+ * Indicadores Page v3
  * Design: Warm Professional — Organic Modernism
- * Financial indicators and KPIs — replaced "pacote" with "plano de tratamento"
+ * Financial indicators and KPIs — clearer Score de Saúde explanation
  */
 
 import { useMemo } from 'react';
@@ -16,8 +16,15 @@ import {
   AlertTriangle,
   CheckCircle2,
   Lightbulb,
+  Info,
+  HelpCircle,
 } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
+import {
+  Tooltip as UITooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import PageHeader from '@/components/PageHeader';
 import StatCard from '@/components/StatCard';
 import { useData } from '@/contexts/DataContext';
@@ -41,6 +48,35 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 
+// Score descriptions for each dimension
+const SCORE_DESCRIPTIONS: Record<string, { good: string; bad: string; tip: string }> = {
+  'Margem de Lucro': {
+    good: 'Sua margem permite reinvestir e crescer.',
+    bad: 'Margem baixa — pouco espaço para imprevistos.',
+    tip: 'Ideal: acima de 25%. Revise custos ou aumente preços.',
+  },
+  'Taxa de Ocupação': {
+    good: 'Boa utilização da sua agenda.',
+    bad: 'Muitos horários vagos na agenda.',
+    tip: 'Ideal: acima de 65%. Invista em marketing ou parcerias.',
+  },
+  'Ponto de Equilíbrio': {
+    good: 'Você cobre seus custos com poucas sessões.',
+    bad: 'Precisa de muitas sessões para cobrir custos.',
+    tip: 'Quanto menor, melhor. Reduza custos fixos para melhorar.',
+  },
+  'Diversificação de Serviços': {
+    good: 'Boa variedade de serviços oferecidos.',
+    bad: 'Poucos tipos de serviço cadastrados.',
+    tip: 'Ofereça 3-5 serviços diferentes para atingir mais perfis.',
+  },
+  'Planos de Tratamento': {
+    good: 'Planos ajudam a fidelizar pacientes.',
+    bad: 'Sem planos de tratamento cadastrados.',
+    tip: 'Crie planos com desconto para garantir receita recorrente.',
+  },
+};
+
 export default function Indicadores() {
   const { data } = useData();
 
@@ -48,7 +84,7 @@ export default function Indicadores() {
     const custoFixoTotal = calcularTotalCustosFixos(data.custosFixos);
     const custoVarTotal = calcularTotalCustosVariaveis(data.custosVariaveis);
     const custoMensal = calcularCustoTotalMensal(data);
-    const precoPorSessao = calcularPrecoMinimo(data); // preço = custo + margem
+    const precoPorSessao = calcularPrecoMinimo(data);
     const taxaOcupacao = calcularTaxaOcupacao(data);
     const pontoEquilibrio = calcularPontoEquilibrio(data, precoPorSessao);
     const valorHora = calcularValorHora(data, precoPorSessao);
@@ -63,7 +99,6 @@ export default function Indicadores() {
     const custoFixoPorSessao = data.sessoesMeta > 0 ? custoFixoTotal / data.sessoesMeta : 0;
     const custoVarPorSessao = data.sessoesMeta > 0 ? custoVarTotal / data.sessoesMeta : 0;
 
-    // ROI do marketing
     const custoMarketing = data.custosFixos
       .filter(c => c.nome.toLowerCase().includes('marketing'))
       .reduce((sum, c) => sum + getValorMensal(c), 0);
@@ -87,13 +122,19 @@ export default function Indicadores() {
     };
   }, [data]);
 
-  const radarData = useMemo(() => [
-    { subject: 'Margem', value: metrics.scores.margem, fullMark: 100 },
-    { subject: 'Ocupação', value: metrics.scores.ocupacao, fullMark: 100 },
-    { subject: 'Equilíbrio', value: metrics.scores.equilibrio, fullMark: 100 },
-    { subject: 'Serviços', value: metrics.scores.diversificacao, fullMark: 100 },
-    { subject: 'Planos', value: metrics.scores.planos, fullMark: 100 },
+  const scoreItems = useMemo(() => [
+    { label: 'Margem de Lucro', value: metrics.scores.margem },
+    { label: 'Taxa de Ocupação', value: metrics.scores.ocupacao },
+    { label: 'Ponto de Equilíbrio', value: metrics.scores.equilibrio },
+    { label: 'Diversificação de Serviços', value: metrics.scores.diversificacao },
+    { label: 'Planos de Tratamento', value: metrics.scores.planos },
   ], [metrics]);
+
+  const radarData = useMemo(() => scoreItems.map(item => ({
+    subject: item.label.split(' ').slice(0, 2).join(' '),
+    value: item.value,
+    fullMark: 100,
+  })), [scoreItems]);
 
   const dicas = useMemo(() => {
     const tips: { icon: typeof Lightbulb; text: string; type: 'info' | 'warning' | 'success' }[] = [];
@@ -101,8 +142,10 @@ export default function Indicadores() {
     if (metrics.taxaOcupacao < 50) {
       tips.push({ icon: AlertTriangle, text: 'Sua taxa de ocupação está baixa. Considere investir em marketing ou reduzir os dias de trabalho.', type: 'warning' });
     }
-    if (metrics.margemLiquida < 20) {
-      tips.push({ icon: AlertTriangle, text: 'Sua margem está abaixo de 20%. Revise seus custos ou aumente o preço.', type: 'warning' });
+    if (metrics.margemLiquida < 15) {
+      tips.push({ icon: AlertTriangle, text: 'Margem abaixo de 15% é arriscada. Revise seus custos ou aumente o preço para ter mais segurança.', type: 'warning' });
+    } else if (metrics.margemLiquida < 30) {
+      tips.push({ icon: Lightbulb, text: 'Sua margem está na faixa saudável (15-30%). Para crescer com mais segurança, busque chegar acima de 30%.', type: 'info' });
     }
     if (data.planosTratamento.length === 0) {
       tips.push({ icon: Lightbulb, text: 'Crie planos de tratamento com desconto para fidelizar pacientes e garantir receita recorrente.', type: 'info' });
@@ -120,6 +163,31 @@ export default function Indicadores() {
     return tips;
   }, [metrics, data]);
 
+  // Determine score color and label
+  const getScoreColor = (value: number) => {
+    if (value >= 70) return '#7c9a82';
+    if (value >= 40) return '#d4a853';
+    return '#c2785c';
+  };
+
+  const getScoreLabel = (value: number) => {
+    if (value >= 70) return 'Saudável';
+    if (value >= 40) return 'Regular';
+    return 'Crítico';
+  };
+
+  const getScoreEmoji = (value: number) => {
+    if (value >= 70) return '🟢';
+    if (value >= 40) return '🟡';
+    return '🔴';
+  };
+
+  const getBarColor = (value: number) => {
+    if (value >= 70) return 'bg-sage';
+    if (value >= 40) return 'bg-golden';
+    return 'bg-destructive/70';
+  };
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -128,7 +196,7 @@ export default function Indicadores() {
         icon={Target}
       />
 
-      {/* Health Score */}
+      {/* Health Score — IMPROVED CLARITY */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -136,16 +204,38 @@ export default function Indicadores() {
       >
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div>
-            <h3 className="font-heading font-semibold text-foreground mb-2">Score de Saúde Financeira</h3>
-            <p className="text-sm text-muted-foreground mb-4">Avaliação geral baseada nos seus indicadores</p>
+            <div className="flex items-center gap-2 mb-1">
+              <h3 className="font-heading font-semibold text-foreground">Score de Saúde Financeira</h3>
+              <UITooltip>
+                <TooltipTrigger>
+                  <HelpCircle className="w-4 h-4 text-muted-foreground" />
+                </TooltipTrigger>
+                <TooltipContent side="right" className="max-w-xs text-xs">
+                  <p className="font-medium mb-1">Como funciona?</p>
+                  <p>O score é a média de 5 indicadores, cada um pontuado de 0 a 100. Quanto mais próximo de 100, melhor a saúde financeira do seu consultório.</p>
+                </TooltipContent>
+              </UITooltip>
+            </div>
 
-            <div className="flex items-center gap-4 mb-4">
-              <div className="relative w-24 h-24">
+            {/* Explanation box */}
+            <div className="p-3 rounded-xl bg-muted/30 border border-border/50 mb-4">
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Este score avalia <strong className="text-foreground">5 dimensões</strong> do seu negócio: margem de lucro, ocupação da agenda, facilidade para cobrir custos, variedade de serviços e planos de tratamento. Cada dimensão vale até 100 pontos. O resultado final é a média.
+              </p>
+              <div className="flex gap-4 mt-2 text-xs">
+                <span className="flex items-center gap-1">🟢 70-100 = Saudável</span>
+                <span className="flex items-center gap-1">🟡 40-69 = Regular</span>
+                <span className="flex items-center gap-1">🔴 0-39 = Crítico</span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-4 mb-5">
+              <div className="relative w-24 h-24 flex-shrink-0">
                 <svg className="w-24 h-24 -rotate-90" viewBox="0 0 100 100">
                   <circle cx="50" cy="50" r="42" fill="none" stroke="#e5e0d8" strokeWidth="8" />
                   <circle
                     cx="50" cy="50" r="42" fill="none"
-                    stroke={metrics.saudeFinanceira >= 70 ? '#7c9a82' : metrics.saudeFinanceira >= 40 ? '#d4a853' : '#c2785c'}
+                    stroke={getScoreColor(metrics.saudeFinanceira)}
                     strokeWidth="8"
                     strokeDasharray={`${metrics.saudeFinanceira * 2.64} 264`}
                     strokeLinecap="round"
@@ -156,36 +246,44 @@ export default function Indicadores() {
                 </div>
               </div>
               <div>
-                <p className="text-lg font-heading font-semibold text-foreground">
-                  {metrics.saudeFinanceira >= 70 ? 'Bom' : metrics.saudeFinanceira >= 40 ? 'Regular' : 'Atenção'}
+                <p className="text-lg font-heading font-semibold text-foreground flex items-center gap-2">
+                  {getScoreEmoji(metrics.saudeFinanceira)} {getScoreLabel(metrics.saudeFinanceira)}
                 </p>
                 <p className="text-sm text-muted-foreground">
                   {metrics.saudeFinanceira >= 70
-                    ? 'Seus indicadores estão saudáveis'
+                    ? 'Seus indicadores estão saudáveis. Continue monitorando!'
                     : metrics.saudeFinanceira >= 40
-                    ? 'Há pontos de melhoria'
-                    : 'Revise seus custos e preços'}
+                    ? 'Há pontos de melhoria. Veja as dimensões abaixo.'
+                    : 'Atenção! Revise seus custos e preços com urgência.'}
                 </p>
               </div>
             </div>
 
-            {/* Score breakdown */}
-            <div className="space-y-3">
-              {[
-                { label: 'Margem de Lucro', value: metrics.scores.margem },
-                { label: 'Taxa de Ocupação', value: metrics.scores.ocupacao },
-                { label: 'Ponto de Equilíbrio', value: metrics.scores.equilibrio },
-                { label: 'Diversificação de Serviços', value: metrics.scores.diversificacao },
-                { label: 'Planos de Tratamento', value: metrics.scores.planos },
-              ].map((item) => (
-                <div key={item.label}>
-                  <div className="flex justify-between text-xs mb-1">
-                    <span className="text-muted-foreground">{item.label}</span>
-                    <span className="font-mono font-medium">{Math.round(item.value)}%</span>
+            {/* Score breakdown with descriptions */}
+            <div className="space-y-4">
+              {scoreItems.map((item) => {
+                const desc = SCORE_DESCRIPTIONS[item.label];
+                const isGood = item.value >= 60;
+                return (
+                  <div key={item.label} className="space-y-1">
+                    <div className="flex justify-between text-xs">
+                      <span className="text-foreground font-medium flex items-center gap-1.5">
+                        {getScoreEmoji(item.value)} {item.label}
+                      </span>
+                      <span className="font-mono font-medium">{Math.round(item.value)}/100</span>
+                    </div>
+                    <div className="h-2.5 bg-muted rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all ${getBarColor(item.value)}`}
+                        style={{ width: `${Math.max(item.value, 2)}%` }}
+                      />
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">
+                      {isGood ? desc?.good : desc?.bad} <span className="text-primary/80">{desc?.tip}</span>
+                    </p>
                   </div>
-                  <Progress value={item.value} className="h-2" />
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 
@@ -193,7 +291,7 @@ export default function Indicadores() {
             <ResponsiveContainer width="100%" height="100%">
               <RadarChart data={radarData}>
                 <PolarGrid stroke="#e5e0d8" />
-                <PolarAngleAxis dataKey="subject" tick={{ fontSize: 12, fill: '#8a7e74' }} />
+                <PolarAngleAxis dataKey="subject" tick={{ fontSize: 11, fill: '#8a7e74' }} />
                 <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} />
                 <Radar
                   name="Score"
@@ -212,7 +310,7 @@ export default function Indicadores() {
       {/* KPI Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard title="Faturamento/Hora" value={formatarMoeda(metrics.faturamentoPorHora)} subtitle={`${metrics.horasMensais}h/mês trabalhadas`} icon={Clock} variant="primary" />
-        <StatCard title="Margem Líquida" value={`${metrics.margemLiquida.toFixed(1)}%`} subtitle={metrics.margemLiquida >= 20 ? 'Saudável' : 'Abaixo do ideal'} icon={Percent} variant={metrics.margemLiquida >= 20 ? 'success' : 'warning'} />
+        <StatCard title="Margem Líquida" value={`${metrics.margemLiquida.toFixed(1)}%`} subtitle={metrics.margemLiquida >= 30 ? 'Excelente' : metrics.margemLiquida >= 15 ? 'Saudável' : 'Arriscada'} icon={Percent} variant={metrics.margemLiquida >= 15 ? 'success' : 'warning'} />
         <StatCard title="Capacidade Máxima" value={`${metrics.capacidadeMaxima} sessões`} subtitle={`${data.diasUteis} dias × ${data.sessoesporDia} sessões`} icon={Users} variant="default" />
         <StatCard title="Custo Fixo/Sessão" value={formatarMoeda(metrics.custoFixoPorSessao)} subtitle={`${metrics.custoFixoPerc.toFixed(0)}% do custo total`} icon={DollarSign} variant="default" />
       </div>
