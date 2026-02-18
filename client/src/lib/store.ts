@@ -190,6 +190,10 @@ const CUSTOS_FIXOS_NAME_MAP: Record<string, string> = {
   'CREFITO': 'CREFITO ou outro conselho de classe',
   'CREFITO (anuidade)': 'CREFITO ou outro conselho de classe',
   'Conselho de classe': 'CREFITO ou outro conselho de classe',
+  'Aluguel': 'Aluguel do consultório/sala',
+  'Aluguel da sala': 'Aluguel do consultório/sala',
+  'Aluguel do espaço': 'Aluguel do consultório/sala',
+  'Aluguel consultório': 'Aluguel do consultório/sala',
 };
 
 // Items that should be migrated from custos to reservas
@@ -255,6 +259,17 @@ export function loadData(): DadosPrecificacao {
             temParcelaAtiva: c.temParcelaAtiva ?? (matched as any)?.temParcelaAtiva ?? false,
           };
         });
+
+        // Deduplicate: if multiple items have the same name after mapping, keep the one with higher value
+        const deduped = new Map<string, any>();
+        for (const c of parsed.custosFixos) {
+          const key = c.nome.toLowerCase().trim();
+          const existing = deduped.get(key);
+          if (!existing || c.valor > existing.valor) {
+            deduped.set(key, c);
+          }
+        }
+        parsed.custosFixos = Array.from(deduped.values());
 
         // Add missing default custos fixos and depreciação
         const existingNames = new Set(parsed.custosFixos.map((c: any) => c.nome.toLowerCase()));

@@ -155,6 +155,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           <div className="text-xs text-muted-foreground text-center">
             <p className="font-medium">FisioPrecifica v2.0</p>
             <p className="mt-0.5 opacity-70">Seus dados ficam salvos localmente</p>
+            <p className="mt-2 text-[10px] opacity-50">Feito por Allison Braz — FisioMind</p>
           </div>
         </div>
       </aside>
@@ -186,6 +187,14 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         <div className={`p-4 sm:p-6 lg:p-8 ${!isRegistered ? 'pb-24' : ''}`}>
           {children}
         </div>
+
+        {/* Main Content Footer */}
+        <footer className="border-t border-border/50 px-4 sm:px-6 lg:px-8 py-4 mt-8">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-muted-foreground/60">
+            <p>Feito por <span className="font-medium text-muted-foreground/80">Allison Braz</span> — <span className="font-medium text-primary/70">FisioMind</span></p>
+            <p>FisioPrecifica © {new Date().getFullYear()}</p>
+          </div>
+        </footer>
       </main>
     </div>
   );

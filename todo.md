@@ -47,3 +47,7 @@
 - [x] Atualizar Indicadores com novas métricas
 - [x] Atualizar Relatório PDF com Composição do Lucro e Reservas
 - [x] Não alterado: UI visual, Serviços, Planos de Tratamento, Relatórios Mensais
+
+## Correções v5
+- [x] Corrigir aluguéis duplicados nos custos operacionais (name mapping + deduplication)
+- [x] Adicionar rodapé "Feito por Allison Braz — FisioMind" no sidebar e no conteúdo principal
