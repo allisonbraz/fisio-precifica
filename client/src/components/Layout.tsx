@@ -40,7 +40,7 @@ const navItems = [
 ];
 
 const adminNavItems = [
-  { path: '/admin/leads', label: 'Leads', icon: Users },
+  { path: '/admin/leads', label: 'Contatos', icon: Users },
 ];
 
 export default function Layout({ children }: { children: React.ReactNode }) {

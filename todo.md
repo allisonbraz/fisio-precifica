@@ -51,3 +51,11 @@
 ## Correções v5
 - [x] Corrigir aluguéis duplicados nos custos operacionais (name mapping + deduplication)
 - [x] Adicionar rodapé "Feito por Allison Braz — FisioMind" no sidebar e no conteúdo principal
+
+## Unificação Leads + OAuth v6
+- [x] Adicionar campo whatsapp e source à tabela users no banco
+- [x] Registrar automaticamente como lead quem fizer login OAuth (auto-link por email)
+- [x] Unificar painel admin "Central de Contatos" com filtros por origem (Banner/Login/Ambos)
+- [x] Permitir exportar todos os contatos unificados em CSV
+- [x] Pesquisar e apresentar estratégias de monetização
+- [x] 15 testes vitest passando (leads + contacts + auth)

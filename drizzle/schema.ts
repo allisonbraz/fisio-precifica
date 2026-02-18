@@ -15,7 +15,9 @@ export const users = mysqlTable("users", {
   openId: varchar("openId", { length: 64 }).notNull().unique(),
   name: text("name"),
   email: varchar("email", { length: 320 }),
+  whatsapp: varchar("whatsapp", { length: 30 }),
   loginMethod: varchar("loginMethod", { length: 64 }),
+  source: varchar("source", { length: 100 }).default("oauth"),
   role: mysqlEnum("role", ["user", "admin"]).default("user").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
@@ -35,7 +37,9 @@ export const leads = mysqlTable("leads", {
   whatsapp: varchar("whatsapp", { length: 30 }).notNull(),
   ip: varchar("ip", { length: 45 }),
   userAgent: text("userAgent"),
-  source: varchar("source", { length: 100 }).default("fisioprecifica"),
+  source: varchar("source", { length: 100 }).default("banner"),
+  /** Link to users table if this lead also has an OAuth account */
+  userId: int("userId"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 

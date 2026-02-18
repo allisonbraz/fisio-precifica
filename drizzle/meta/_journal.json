@@ -15,6 +15,13 @@
       "when": 1771357439777,
       "tag": "0001_known_living_tribunal",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1771445990547,
+      "tag": "0002_quick_harrier",
+      "breakpoints": true
     }
   ]
 }

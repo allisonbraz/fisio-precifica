@@ -1,4 +1,4 @@
-import { eq, desc, sql } from "drizzle-orm";
+import { eq, desc, sql, or } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { InsertUser, users, InsertLead, leads } from "../drizzle/schema";
 import { ENV } from './_core/env';
@@ -60,6 +60,9 @@ export async function upsertUser(user: InsertUser): Promise<void> {
       updateSet.role = 'admin';
     }
 
+    // Set source to 'oauth' for OAuth logins
+    values.source = 'oauth';
+
     if (!values.lastSignedIn) {
       values.lastSignedIn = new Date();
     }
@@ -71,6 +74,16 @@ export async function upsertUser(user: InsertUser): Promise<void> {
     await db.insert(users).values(values).onDuplicateKeyUpdate({
       set: updateSet,
     });
+
+    // After upsert, try to link any existing lead with the same email
+    if (user.email) {
+      const dbUser = await db.select().from(users).where(eq(users.openId, user.openId)).limit(1);
+      if (dbUser.length > 0) {
+        await db.update(leads)
+          .set({ userId: dbUser[0].id })
+          .where(eq(leads.email, user.email));
+      }
+    }
   } catch (error) {
     console.error("[Database] Failed to upsert user:", error);
     throw error;
@@ -123,4 +136,97 @@ export async function getLeadsForExport() {
   const db = await getDb();
   if (!db) return [];
   return db.select().from(leads).orderBy(desc(leads.createdAt));
+}
+
+// ===== UNIFIED CONTACTS =====
+
+export interface UnifiedContact {
+  id: string;
+  nome: string;
+  email: string;
+  whatsapp: string;
+  source: string;
+  hasOAuth: boolean;
+  createdAt: Date;
+  lastSignedIn: Date | null;
+}
+
+/**
+ * Get all contacts unified from both leads and users tables.
+ * Deduplicates by email — if a lead and user share the same email, they merge.
+ */
+export async function getUnifiedContacts(limit = 100, offset = 0): Promise<{ items: UnifiedContact[]; total: number }> {
+  const db = await getDb();
+  if (!db) return { items: [], total: 0 };
+
+  // Get all leads
+  const allLeads = await db.select().from(leads).orderBy(desc(leads.createdAt));
+
+  // Get all users (excluding admin/owner)
+  const allUsers = await db.select().from(users).orderBy(desc(users.createdAt));
+
+  // Merge by email
+  const contactMap = new Map<string, UnifiedContact>();
+
+  // First, add all leads
+  for (const lead of allLeads) {
+    const key = lead.email.toLowerCase().trim();
+    if (!contactMap.has(key)) {
+      contactMap.set(key, {
+        id: `lead-${lead.id}`,
+        nome: lead.nome,
+        email: lead.email,
+        whatsapp: lead.whatsapp,
+        source: lead.source || 'banner',
+        hasOAuth: false,
+        createdAt: lead.createdAt,
+        lastSignedIn: null,
+      });
+    }
+  }
+
+  // Then, merge/add users
+  for (const user of allUsers) {
+    if (!user.email) continue;
+    const key = user.email.toLowerCase().trim();
+    const existing = contactMap.get(key);
+    if (existing) {
+      // Merge: lead already exists, enrich with OAuth info
+      existing.hasOAuth = true;
+      existing.lastSignedIn = user.lastSignedIn;
+      existing.source = `${existing.source} + oauth`;
+      // Use user name if lead name is empty
+      if (!existing.nome && user.name) existing.nome = user.name;
+      // Use user whatsapp if available
+      if (user.whatsapp && !existing.whatsapp) existing.whatsapp = user.whatsapp;
+    } else {
+      // New contact from OAuth only
+      contactMap.set(key, {
+        id: `user-${user.id}`,
+        nome: user.name || '',
+        email: user.email,
+        whatsapp: user.whatsapp || '',
+        source: user.source || 'oauth',
+        hasOAuth: true,
+        createdAt: user.createdAt,
+        lastSignedIn: user.lastSignedIn,
+      });
+    }
+  }
+
+  const all = Array.from(contactMap.values())
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+
+  const total = all.length;
+  const items = all.slice(offset, offset + limit);
+
+  return { items, total };
+}
+
+/**
+ * Get all contacts for CSV export
+ */
+export async function getUnifiedContactsForExport(): Promise<UnifiedContact[]> {
+  const result = await getUnifiedContacts(10000, 0);
+  return result.items;
 }

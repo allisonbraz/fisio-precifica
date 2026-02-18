@@ -1,7 +1,7 @@
 /**
- * Leads Admin Page
+ * Unified Contacts Admin Page
  * Design: Warm Professional — Organic Modernism
- * Admin-only page to view and export captured leads
+ * Admin-only page to view all contacts (leads + OAuth users) unified
  */
 
 import { useState, useMemo } from 'react';
@@ -16,6 +16,10 @@ import {
   ChevronLeft,
   ChevronRight,
   RefreshCw,
+  Shield,
+  UserCheck,
+  Globe,
+  LogIn,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -28,51 +32,104 @@ import { getLoginUrl } from '@/const';
 
 const PAGE_SIZE = 20;
 
+function SourceBadge({ source, hasOAuth }: { source: string; hasOAuth: boolean }) {
+  if (source.includes('+') || (source.includes('banner') && hasOAuth)) {
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-gold/20 text-gold-dark">
+        <UserCheck className="w-3 h-3" />
+        Banner + Login
+      </span>
+    );
+  }
+  if (hasOAuth || source === 'oauth') {
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-sage/20 text-sage-dark">
+        <LogIn className="w-3 h-3" />
+        Login OAuth
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-terracotta/15 text-terracotta">
+      <Globe className="w-3 h-3" />
+      Banner
+    </span>
+  );
+}
+
 export default function Leads() {
   const { user, isAuthenticated, loading: authLoading } = useAuth();
   const [page, setPage] = useState(0);
   const [search, setSearch] = useState('');
+  const [sourceFilter, setSourceFilter] = useState<'all' | 'banner' | 'oauth' | 'both'>('all');
 
-  const { data: leadsData, isLoading, refetch } = trpc.leads.list.useQuery(
+  const { data: contactsData, isLoading, refetch } = trpc.contacts.list.useQuery(
     { limit: 500, offset: 0 },
     { enabled: isAuthenticated && user?.role === 'admin' }
   );
 
   // Filter and paginate locally
-  const filteredLeads = useMemo(() => {
-    if (!leadsData?.items) return [];
-    if (!search.trim()) return leadsData.items;
-    const q = search.toLowerCase();
-    return leadsData.items.filter(
-      l => l.nome.toLowerCase().includes(q) ||
-           l.email.toLowerCase().includes(q) ||
-           l.whatsapp.includes(q)
-    );
-  }, [leadsData, search]);
+  const filteredContacts = useMemo(() => {
+    if (!contactsData?.items) return [];
+    let items = contactsData.items;
 
-  const totalPages = Math.ceil(filteredLeads.length / PAGE_SIZE);
-  const paginatedLeads = filteredLeads.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+    // Source filter
+    if (sourceFilter === 'banner') {
+      items = items.filter(c => !c.hasOAuth);
+    } else if (sourceFilter === 'oauth') {
+      items = items.filter(c => c.hasOAuth && !c.source.includes('+'));
+    } else if (sourceFilter === 'both') {
+      items = items.filter(c => c.source.includes('+'));
+    }
+
+    // Search filter
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      items = items.filter(
+        c => c.nome.toLowerCase().includes(q) ||
+             c.email.toLowerCase().includes(q) ||
+             c.whatsapp.includes(q)
+      );
+    }
+
+    return items;
+  }, [contactsData, search, sourceFilter]);
+
+  const stats = useMemo(() => {
+    if (!contactsData?.items) return { total: 0, withOAuth: 0, withWhatsapp: 0, bannerOnly: 0 };
+    const items = contactsData.items;
+    return {
+      total: items.length,
+      withOAuth: items.filter(c => c.hasOAuth).length,
+      withWhatsapp: items.filter(c => c.whatsapp).length,
+      bannerOnly: items.filter(c => !c.hasOAuth).length,
+    };
+  }, [contactsData]);
+
+  const totalPages = Math.ceil(filteredContacts.length / PAGE_SIZE);
+  const paginatedContacts = filteredContacts.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
   const exportCSV = () => {
-    if (!leadsData?.items?.length) {
-      toast.error('Nenhum lead para exportar');
+    if (!contactsData?.items?.length) {
+      toast.error('Nenhum contato para exportar');
       return;
     }
-    const headers = ['Nome', 'Email', 'WhatsApp', 'Data de Cadastro', 'IP', 'Origem'];
-    const rows = leadsData.items.map(l => [
-      l.nome,
-      l.email,
-      l.whatsapp,
-      new Date(l.createdAt).toLocaleString('pt-BR'),
-      l.ip || '',
-      l.source || 'fisioprecifica',
+    const headers = ['Nome', 'Email', 'WhatsApp', 'Origem', 'Tem Login', 'Data de Cadastro', 'Último Login'];
+    const rows = contactsData.items.map(c => [
+      c.nome,
+      c.email,
+      c.whatsapp,
+      c.source,
+      c.hasOAuth ? 'Sim' : 'Não',
+      new Date(c.createdAt).toLocaleString('pt-BR'),
+      c.lastSignedIn ? new Date(c.lastSignedIn).toLocaleString('pt-BR') : '',
     ]);
     const csv = [headers.join(','), ...rows.map(r => r.map(v => `"${v}"`).join(','))].join('\n');
     const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `leads_fisioprecifica_${new Date().toISOString().split('T')[0]}.csv`;
+    a.download = `contatos_fisioprecifica_${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
     URL.revokeObjectURL(url);
     toast.success('CSV exportado com sucesso!');
@@ -91,8 +148,8 @@ export default function Leads() {
     return (
       <div className="space-y-6">
         <PageHeader
-          title="Painel de Leads"
-          description="Faça login como administrador para acessar os leads capturados"
+          title="Central de Contatos"
+          description="Faça login como administrador para acessar os contatos"
           icon={Users}
         />
         <div className="bg-card rounded-2xl border border-border p-8 text-center">
@@ -101,7 +158,7 @@ export default function Leads() {
             Acesso restrito
           </h3>
           <p className="text-muted-foreground mb-6">
-            Você precisa fazer login como administrador para visualizar os leads capturados.
+            Você precisa fazer login como administrador para visualizar os contatos.
           </p>
           <Button
             onClick={() => { window.location.href = getLoginUrl(); }}
@@ -118,17 +175,17 @@ export default function Leads() {
     return (
       <div className="space-y-6">
         <PageHeader
-          title="Painel de Leads"
+          title="Central de Contatos"
           description="Acesso restrito a administradores"
           icon={Users}
         />
         <div className="bg-card rounded-2xl border border-border p-8 text-center">
-          <Users className="w-16 h-16 text-muted-foreground/30 mx-auto mb-4" />
+          <Shield className="w-16 h-16 text-muted-foreground/30 mx-auto mb-4" />
           <h3 className="font-heading font-semibold text-lg text-foreground mb-2">
             Sem permissão
           </h3>
           <p className="text-muted-foreground">
-            Apenas administradores podem acessar o painel de leads.
+            Apenas administradores podem acessar a central de contatos.
           </p>
         </div>
       </div>
@@ -138,8 +195,8 @@ export default function Leads() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Painel de Leads"
-        description="Visualize e exporte os contatos capturados para sua mailing list"
+        title="Central de Contatos"
+        description="Todos os contatos unificados — cadastros do banner e logins OAuth em um só lugar"
         icon={Users}
         action={
           <div className="flex gap-2">
@@ -155,7 +212,7 @@ export default function Leads() {
             <Button
               className="rounded-xl gap-1.5"
               onClick={exportCSV}
-              disabled={!leadsData?.items?.length}
+              disabled={!contactsData?.items?.length}
             >
               <Download className="w-4 h-4" />
               Exportar CSV
@@ -165,39 +222,89 @@ export default function Leads() {
       />
 
       {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
-          title="Total de Leads"
-          value={String(leadsData?.total ?? 0)}
-          subtitle="Cadastros realizados"
+          title="Total de Contatos"
+          value={String(stats.total)}
+          subtitle="Leads + Usuários unificados"
           icon={Users}
           variant="primary"
         />
         <StatCard
-          title="E-mails Capturados"
-          value={String(leadsData?.total ?? 0)}
-          subtitle="Para mailing list"
-          icon={Mail}
+          title="Com Login"
+          value={String(stats.withOAuth)}
+          subtitle="Fizeram login OAuth"
+          icon={LogIn}
           variant="success"
         />
         <StatCard
-          title="WhatsApp"
-          value={String(leadsData?.total ?? 0)}
+          title="Apenas Banner"
+          value={String(stats.bannerOnly)}
+          subtitle="Cadastro sem login"
+          icon={Globe}
+          variant="warning"
+        />
+        <StatCard
+          title="Com WhatsApp"
+          value={String(stats.withWhatsapp)}
           subtitle="Contatos diretos"
           icon={Phone}
-          variant="warning"
+          variant="default"
         />
       </div>
 
-      {/* Search */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <Input
-          value={search}
-          onChange={e => { setSearch(e.target.value); setPage(0); }}
-          placeholder="Buscar por nome, e-mail ou WhatsApp..."
-          className="pl-10 rounded-xl"
-        />
+      {/* Explanation Card */}
+      <div className="bg-card rounded-2xl border border-border p-5">
+        <h3 className="font-heading font-semibold text-sm text-foreground mb-3">Como funciona a unificação</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs text-muted-foreground">
+          <div className="flex items-start gap-2">
+            <Globe className="w-4 h-4 text-terracotta mt-0.5 shrink-0" />
+            <div>
+              <p className="font-medium text-foreground">Banner</p>
+              <p>Pessoa preencheu nome, e-mail e WhatsApp no banner de cadastro do app</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-2">
+            <LogIn className="w-4 h-4 text-sage-dark mt-0.5 shrink-0" />
+            <div>
+              <p className="font-medium text-foreground">Login OAuth</p>
+              <p>Pessoa fez login com conta Manus — nome e e-mail capturados automaticamente</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-2">
+            <UserCheck className="w-4 h-4 text-gold-dark mt-0.5 shrink-0" />
+            <div>
+              <p className="font-medium text-foreground">Banner + Login</p>
+              <p>Pessoa fez ambos — dados unificados pelo e-mail em um único registro</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={e => { setSearch(e.target.value); setPage(0); }}
+            placeholder="Buscar por nome, e-mail ou WhatsApp..."
+            className="pl-10 rounded-xl"
+          />
+        </div>
+        <div className="flex gap-1.5">
+          {(['all', 'banner', 'oauth', 'both'] as const).map(filter => (
+            <Button
+              key={filter}
+              variant={sourceFilter === filter ? 'default' : 'outline'}
+              size="sm"
+              className="rounded-lg text-xs"
+              onClick={() => { setSourceFilter(filter); setPage(0); }}
+            >
+              {filter === 'all' ? 'Todos' : filter === 'banner' ? 'Banner' : filter === 'oauth' ? 'Login' : 'Ambos'}
+            </Button>
+          ))}
+        </div>
       </div>
 
       {/* Table */}
@@ -209,13 +316,15 @@ export default function Leads() {
         {isLoading ? (
           <div className="p-12 text-center">
             <RefreshCw className="w-8 h-8 animate-spin text-muted-foreground mx-auto mb-3" />
-            <p className="text-muted-foreground">Carregando leads...</p>
+            <p className="text-muted-foreground">Carregando contatos...</p>
           </div>
-        ) : paginatedLeads.length === 0 ? (
+        ) : paginatedContacts.length === 0 ? (
           <div className="p-12 text-center">
             <Users className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
             <p className="text-muted-foreground">
-              {search ? 'Nenhum lead encontrado para esta busca' : 'Nenhum lead cadastrado ainda'}
+              {search || sourceFilter !== 'all'
+                ? 'Nenhum contato encontrado para estes filtros'
+                : 'Nenhum contato cadastrado ainda'}
             </p>
           </div>
         ) : (
@@ -228,37 +337,52 @@ export default function Leads() {
                     <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Nome</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">E-mail</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">WhatsApp</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Origem</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Data</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {paginatedLeads.map((lead, idx) => (
-                    <tr key={lead.id} className="border-b border-border/50 hover:bg-muted/20 transition-colors">
+                  {paginatedContacts.map((contact, idx) => (
+                    <tr key={contact.id} className="border-b border-border/50 hover:bg-muted/20 transition-colors">
                       <td className="px-4 py-3 text-sm text-muted-foreground font-mono">
                         {page * PAGE_SIZE + idx + 1}
                       </td>
                       <td className="px-4 py-3">
-                        <span className="text-sm font-medium text-foreground">{lead.nome}</span>
+                        <span className="text-sm font-medium text-foreground">{contact.nome || '—'}</span>
                       </td>
                       <td className="px-4 py-3">
-                        <a href={`mailto:${lead.email}`} className="text-sm text-primary hover:underline">
-                          {lead.email}
+                        <a href={`mailto:${contact.email}`} className="text-sm text-primary hover:underline">
+                          {contact.email}
                         </a>
                       </td>
                       <td className="px-4 py-3">
-                        <a
-                          href={`https://wa.me/${lead.whatsapp.replace(/\D/g, '')}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-sm text-sage-dark hover:underline"
-                        >
-                          {lead.whatsapp}
-                        </a>
+                        {contact.whatsapp ? (
+                          <a
+                            href={`https://wa.me/${contact.whatsapp.replace(/\D/g, '')}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm text-sage-dark hover:underline"
+                          >
+                            {contact.whatsapp}
+                          </a>
+                        ) : (
+                          <span className="text-sm text-muted-foreground/50">—</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        <SourceBadge source={contact.source} hasOAuth={contact.hasOAuth} />
                       </td>
                       <td className="px-4 py-3 text-sm text-muted-foreground">
-                        <div className="flex items-center gap-1.5">
-                          <Calendar className="w-3.5 h-3.5" />
-                          {new Date(lead.createdAt).toLocaleDateString('pt-BR')}
+                        <div className="flex flex-col gap-0.5">
+                          <div className="flex items-center gap-1.5">
+                            <Calendar className="w-3.5 h-3.5" />
+                            {new Date(contact.createdAt).toLocaleDateString('pt-BR')}
+                          </div>
+                          {contact.lastSignedIn && (
+                            <span className="text-[10px] text-muted-foreground/60">
+                              Último login: {new Date(contact.lastSignedIn).toLocaleDateString('pt-BR')}
+                            </span>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -271,7 +395,7 @@ export default function Leads() {
             {totalPages > 1 && (
               <div className="flex items-center justify-between px-4 py-3 border-t border-border">
                 <p className="text-sm text-muted-foreground">
-                  Mostrando {page * PAGE_SIZE + 1}-{Math.min((page + 1) * PAGE_SIZE, filteredLeads.length)} de {filteredLeads.length}
+                  Mostrando {page * PAGE_SIZE + 1}-{Math.min((page + 1) * PAGE_SIZE, filteredContacts.length)} de {filteredContacts.length}
                 </p>
                 <div className="flex gap-1">
                   <Button
