@@ -1,5 +1,6 @@
 import { eq, desc, sql, or } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/mysql2";
+import { drizzle } from "drizzle-orm/postgres-js";
+import postgres from "postgres";
 import { InsertUser, users, InsertLead, leads, pricingData } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
@@ -9,7 +10,8 @@ let _db: ReturnType<typeof drizzle> | null = null;
 export async function getDb() {
   if (!_db && process.env.DATABASE_URL) {
     try {
-      _db = drizzle(process.env.DATABASE_URL);
+      const client = postgres(process.env.DATABASE_URL);
+      _db = drizzle(client);
     } catch (error) {
       console.warn("[Database] Failed to connect:", error);
       _db = null;
@@ -71,7 +73,8 @@ export async function upsertUser(user: InsertUser): Promise<void> {
       updateSet.lastSignedIn = new Date();
     }
 
-    await db.insert(users).values(values).onDuplicateKeyUpdate({
+    await db.insert(users).values(values).onConflictDoUpdate({
+      target: users.openId,
       set: updateSet,
     });
 
@@ -112,11 +115,12 @@ export async function createLead(lead: InsertLead) {
   }
   try {
     await db.insert(leads).values(lead)
-      .onDuplicateKeyUpdate({
+      .onConflictDoUpdate({
+        target: leads.email,
         set: {
-          nome: sql`VALUES(nome)`,
-          whatsapp: sql`VALUES(whatsapp)`,
-          source: sql`VALUES(source)`,
+          nome: sql`excluded.nome`,
+          whatsapp: sql`excluded.whatsapp`,
+          source: sql`excluded.source`,
         },
       });
     return true;
@@ -207,7 +211,7 @@ export async function getUnifiedContacts(limit = 100, offset = 0): Promise<{ ite
   }
 
   // Add remaining users (no matching lead)
-  for (const [key, user] of userByEmail) {
+  for (const [key, user] of Array.from(userByEmail.entries())) {
     if (contactMap.has(key)) continue;
     contactMap.set(key, {
       id: `user-${user.id}`,
@@ -249,7 +253,10 @@ export async function savePricingData(ownerEmail: string, data: unknown): Promis
   try {
     await db.insert(pricingData)
       .values({ ownerEmail, data })
-      .onDuplicateKeyUpdate({ set: { data } });
+      .onConflictDoUpdate({
+        target: pricingData.ownerEmail,
+        set: { data, updatedAt: new Date() },
+      });
     return true;
   } catch (error) {
     console.error("[Database] Failed to save pricing data:", error);

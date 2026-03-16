@@ -66,7 +66,7 @@ export const appRouter = router({
     save: publicProcedure
       .input(z.object({
         email: z.string().email(),
-        data: z.record(z.unknown()),
+        data: z.record(z.string(), z.unknown()),
       }))
       .mutation(async ({ input }) => {
         const saved = await savePricingData(input.email, input.data);
