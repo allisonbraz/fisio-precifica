@@ -1,20 +1,16 @@
 /**
- * Vercel Serverless Function — Express adapter for tRPC + OAuth
- * Handles all /api/* routes
+ * Vercel Serverless Function — Express adapter for tRPC
  */
 import 'dotenv/config';
 import express from 'express';
 import { createExpressMiddleware } from '@trpc/server/adapters/express';
 import { appRouter } from '../server/routers.js';
 import { createContext } from '../server/_core/context.js';
-import { registerOAuthRoutes } from '../server/_core/oauth.js';
 
 const app = express();
 
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
-
-registerOAuthRoutes(app);
 
 app.use(
   '/api/trpc',

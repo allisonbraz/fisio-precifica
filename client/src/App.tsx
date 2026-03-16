@@ -21,10 +21,14 @@ import Configuracoes from "./pages/Configuracoes";
 import Perfil from "./pages/Perfil";
 import Leads from "./pages/Leads";
 import Reservas from "./pages/Reservas";
+import Login from "./pages/Login";
 
 function Router() {
   const { isRegistered } = useData();
   return (
+    <Switch>
+      <Route path="/login" component={Login} />
+      <Route>
     <Layout>
       <Switch>
         <Route path="/" component={Home} />
@@ -44,6 +48,8 @@ function Router() {
       <LeadGate />
       <OnboardingWizard isRegistered={isRegistered} />
     </Layout>
+      </Route>
+    </Switch>
   );
 }
 

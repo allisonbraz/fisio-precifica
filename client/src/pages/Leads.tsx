@@ -28,7 +28,6 @@ import StatCard from '@/components/StatCard';
 import { trpc } from '@/lib/trpc';
 import { toast } from 'sonner';
 import { useAuth } from '@/_core/hooks/useAuth';
-import { getLoginUrl } from '@/const';
 
 const PAGE_SIZE = 20;
 
@@ -161,7 +160,7 @@ export default function Leads() {
             Você precisa fazer login como administrador para visualizar os contatos.
           </p>
           <Button
-            onClick={() => { window.location.href = getLoginUrl(); }}
+            onClick={() => { window.location.href = '/login'; }}
             className="rounded-xl"
           >
             Fazer login

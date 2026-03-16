@@ -1,12 +1,10 @@
-import { eq, desc, sql, or } from "drizzle-orm";
+import { eq, desc, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { InsertUser, users, InsertLead, leads, pricingData } from "../drizzle/schema";
-import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
-// Lazily create the drizzle instance so local tooling can run without a DB.
 export async function getDb() {
   if (!_db && process.env.DATABASE_URL) {
     try {
@@ -21,8 +19,8 @@ export async function getDb() {
 }
 
 export async function upsertUser(user: InsertUser): Promise<void> {
-  if (!user.openId) {
-    throw new Error("User openId is required for upsert");
+  if (!user.supabaseId) {
+    throw new Error("User supabaseId is required for upsert");
   }
 
   const db = await getDb();
@@ -33,7 +31,7 @@ export async function upsertUser(user: InsertUser): Promise<void> {
 
   try {
     const values: InsertUser = {
-      openId: user.openId,
+      supabaseId: user.supabaseId,
     };
     const updateSet: Record<string, unknown> = {};
 
@@ -57,13 +55,9 @@ export async function upsertUser(user: InsertUser): Promise<void> {
     if (user.role !== undefined) {
       values.role = user.role;
       updateSet.role = user.role;
-    } else if (user.openId === ENV.ownerOpenId) {
-      values.role = 'admin';
-      updateSet.role = 'admin';
     }
 
-    // Set source to 'oauth' for OAuth logins
-    values.source = 'oauth';
+    values.source = 'supabase';
 
     if (!values.lastSignedIn) {
       values.lastSignedIn = new Date();
@@ -74,13 +68,13 @@ export async function upsertUser(user: InsertUser): Promise<void> {
     }
 
     await db.insert(users).values(values).onConflictDoUpdate({
-      target: users.openId,
+      target: users.supabaseId,
       set: updateSet,
     });
 
-    // After upsert, try to link any existing lead with the same email
+    // Link existing leads with same email
     if (user.email) {
-      const dbUser = await db.select().from(users).where(eq(users.openId, user.openId)).limit(1);
+      const dbUser = await db.select().from(users).where(eq(users.supabaseId, user.supabaseId)).limit(1);
       if (dbUser.length > 0) {
         await db.update(leads)
           .set({ userId: dbUser[0].id })
@@ -93,15 +87,14 @@ export async function upsertUser(user: InsertUser): Promise<void> {
   }
 }
 
-export async function getUserByOpenId(openId: string) {
+export async function getUserBySupabaseId(supabaseId: string) {
   const db = await getDb();
   if (!db) {
     console.warn("[Database] Cannot get user: database not available");
     return undefined;
   }
 
-  const result = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
-
+  const result = await db.select().from(users).where(eq(users.supabaseId, supabaseId)).limit(1);
   return result.length > 0 ? result[0] : undefined;
 }
 
@@ -162,25 +155,17 @@ export interface UnifiedContact {
   lastSignedIn: Date | null;
 }
 
-/** Max rows to fetch per table to prevent OOM */
 const UNIFIED_CONTACTS_MAX = 5000;
 
-/**
- * Get all contacts unified from both leads and users tables.
- * Deduplicates by email — if a lead and user share the same email, they merge.
- * Limits per-table fetch to UNIFIED_CONTACTS_MAX rows for safety.
- */
 export async function getUnifiedContacts(limit = 100, offset = 0): Promise<{ items: UnifiedContact[]; total: number }> {
   const db = await getDb();
   if (!db) return { items: [], total: 0 };
 
-  // Fetch with safety limit to prevent OOM
   const [allLeads, allUsers] = await Promise.all([
     db.select().from(leads).orderBy(desc(leads.createdAt)).limit(UNIFIED_CONTACTS_MAX),
     db.select().from(users).orderBy(desc(users.createdAt)).limit(UNIFIED_CONTACTS_MAX),
   ]);
 
-  // Build user lookup by email for O(1) merging
   const userByEmail = new Map<string, typeof allUsers[number]>();
   for (const user of allUsers) {
     if (user.email) {
@@ -188,7 +173,6 @@ export async function getUnifiedContacts(limit = 100, offset = 0): Promise<{ ite
     }
   }
 
-  // Merge by email
   const contactMap = new Map<string, UnifiedContact>();
 
   for (const lead of allLeads) {
@@ -201,16 +185,14 @@ export async function getUnifiedContacts(limit = 100, offset = 0): Promise<{ ite
       nome: lead.nome || matchedUser?.name || '',
       email: lead.email,
       whatsapp: lead.whatsapp || matchedUser?.whatsapp || '',
-      source: matchedUser ? `${lead.source || 'banner'} + oauth` : (lead.source || 'banner'),
+      source: matchedUser ? `${lead.source || 'banner'} + login` : (lead.source || 'banner'),
       hasOAuth: !!matchedUser,
       createdAt: lead.createdAt,
       lastSignedIn: matchedUser?.lastSignedIn ?? null,
     });
-    // Mark user as consumed
     if (matchedUser) userByEmail.delete(key);
   }
 
-  // Add remaining users (no matching lead)
   for (const [key, user] of Array.from(userByEmail.entries())) {
     if (contactMap.has(key)) continue;
     contactMap.set(key, {
@@ -218,7 +200,7 @@ export async function getUnifiedContacts(limit = 100, offset = 0): Promise<{ ite
       nome: user.name || '',
       email: user.email!,
       whatsapp: user.whatsapp || '',
-      source: user.source || 'oauth',
+      source: user.source || 'supabase',
       hasOAuth: true,
       createdAt: user.createdAt,
       lastSignedIn: user.lastSignedIn,
@@ -234,9 +216,6 @@ export async function getUnifiedContacts(limit = 100, offset = 0): Promise<{ ite
   return { items, total };
 }
 
-/**
- * Get all contacts for CSV export (capped at safety limit)
- */
 export async function getUnifiedContactsForExport(): Promise<UnifiedContact[]> {
   const result = await getUnifiedContacts(UNIFIED_CONTACTS_MAX, 0);
   return result.items;

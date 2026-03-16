@@ -12,11 +12,10 @@ function requireEnv(name: string, fallback?: string): string {
 }
 
 export const ENV = {
-  appId: requireEnv("VITE_APP_ID", ""),
-  cookieSecret: requireEnv("JWT_SECRET"),
   databaseUrl: requireEnv("DATABASE_URL"),
-  oAuthServerUrl: requireEnv("OAUTH_SERVER_URL", ""),
-  ownerOpenId: requireEnv("OWNER_OPEN_ID", ""),
+  supabaseUrl: requireEnv("SUPABASE_URL", process.env.VITE_SUPABASE_URL ?? ""),
+  supabaseAnonKey: requireEnv("SUPABASE_ANON_KEY", process.env.VITE_SUPABASE_ANON_KEY ?? ""),
+  adminEmail: requireEnv("ADMIN_EMAIL", ""),
   isProduction,
   forgeApiUrl: process.env.BUILT_IN_FORGE_API_URL ?? "",
   forgeApiKey: process.env.BUILT_IN_FORGE_API_KEY ?? "",

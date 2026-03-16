@@ -1,5 +1,3 @@
-import { COOKIE_NAME } from "@shared/const";
-import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, protectedProcedure, adminProcedure, router } from "./_core/trpc";
 import { createLead, getLeads, getLeadsCount, getLeadsForExport, getUnifiedContacts, getUnifiedContactsForExport, savePricingData, loadPricingData } from "./db";
@@ -9,15 +7,9 @@ export const appRouter = router({
   system: systemRouter,
   auth: router({
     me: publicProcedure.query(opts => opts.ctx.user),
-    logout: publicProcedure.mutation(({ ctx }) => {
-      const cookieOptions = getSessionCookieOptions(ctx.req);
-      ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
-      return { success: true } as const;
-    }),
   }),
 
   leads: router({
-    /** Public endpoint - anyone can register as a lead */
     register: publicProcedure
       .input(z.object({
         nome: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
@@ -38,7 +30,6 @@ export const appRouter = router({
         return { success: true };
       }),
 
-    /** Admin-only: list leads (raw leads table) */
     list: adminProcedure
       .input(z.object({
         limit: z.number().min(1).max(500).default(50),
@@ -54,7 +45,6 @@ export const appRouter = router({
         return { items, total, limit, offset };
       }),
 
-    /** Admin-only: export all leads */
     exportAll: adminProcedure.query(async () => {
       const items = await getLeadsForExport();
       return { items };
@@ -62,7 +52,6 @@ export const appRouter = router({
   }),
 
   pricing: router({
-    /** Save pricing data — keyed by email */
     save: publicProcedure
       .input(z.object({
         email: z.string().email(),
@@ -73,7 +62,6 @@ export const appRouter = router({
         return { success: saved };
       }),
 
-    /** Load pricing data by email */
     load: publicProcedure
       .input(z.object({
         email: z.string().email(),
@@ -85,7 +73,6 @@ export const appRouter = router({
   }),
 
   contacts: router({
-    /** Admin-only: unified contacts from leads + users */
     list: adminProcedure
       .input(z.object({
         limit: z.number().min(1).max(500).default(50),
@@ -97,7 +84,6 @@ export const appRouter = router({
         return getUnifiedContacts(limit, offset);
       }),
 
-    /** Admin-only: export all unified contacts */
     exportAll: adminProcedure.query(async () => {
       const items = await getUnifiedContactsForExport();
       return { items };
