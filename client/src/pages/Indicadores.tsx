@@ -182,10 +182,10 @@ export default function Indicadores() {
     return 'Crítico';
   };
 
-  const getScoreEmoji = (value: number) => {
-    if (value >= 70) return '🟢';
-    if (value >= 40) return '🟡';
-    return '🔴';
+  const getScoreIndicator = (value: number) => {
+    if (value >= 70) return <span className="w-2.5 h-2.5 rounded-full bg-sage inline-block flex-shrink-0" />;
+    if (value >= 40) return <span className="w-2.5 h-2.5 rounded-full bg-golden inline-block flex-shrink-0" />;
+    return <span className="w-2.5 h-2.5 rounded-full bg-destructive/70 inline-block flex-shrink-0" />;
   };
 
   const getBarColor = (value: number) => {
@@ -228,10 +228,10 @@ export default function Indicadores() {
               <p className="text-xs text-muted-foreground leading-relaxed">
                 Este score avalia <strong className="text-foreground">5 dimensões</strong> do seu negócio: margem de lucro, ocupação da agenda, facilidade para cobrir custos, variedade de serviços e planos de tratamento. Cada dimensão vale até 100 pontos. O resultado final é a média.
               </p>
-              <div className="flex gap-4 mt-2 text-xs">
-                <span className="flex items-center gap-1">🟢 70-100 = Saudável</span>
-                <span className="flex items-center gap-1">🟡 40-69 = Regular</span>
-                <span className="flex items-center gap-1">🔴 0-39 = Crítico</span>
+              <div className="flex flex-wrap gap-3 mt-2 text-xs">
+                <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-sage inline-block" /> 70-100 = Saudável</span>
+                <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-golden inline-block" /> 40-69 = Regular</span>
+                <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-destructive/70 inline-block" /> 0-39 = Crítico</span>
               </div>
             </div>
 
@@ -253,7 +253,7 @@ export default function Indicadores() {
               </div>
               <div>
                 <p className="text-lg font-heading font-semibold text-foreground flex items-center gap-2">
-                  {getScoreEmoji(metrics.saudeFinanceira)} {getScoreLabel(metrics.saudeFinanceira)}
+                  {getScoreIndicator(metrics.saudeFinanceira)} {getScoreLabel(metrics.saudeFinanceira)}
                 </p>
                 <p className="text-sm text-muted-foreground">
                   {metrics.saudeFinanceira >= 70
@@ -274,7 +274,7 @@ export default function Indicadores() {
                   <div key={item.label} className="space-y-1">
                     <div className="flex justify-between text-xs">
                       <span className="text-foreground font-medium flex items-center gap-1.5">
-                        {getScoreEmoji(item.value)} {item.label}
+                        {getScoreIndicator(item.value)} {item.label}
                       </span>
                       <span className="font-mono font-medium">{Math.round(item.value)}/100</span>
                     </div>

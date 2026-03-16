@@ -3,7 +3,7 @@
  * Evolução Estrutural: Custos Operacionais / Depreciação / Reservas Estratégicas
  */
 
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import {
   DadosPrecificacao,
   CustoFixo,
@@ -23,6 +23,7 @@ import {
   loadPerfil,
   savePerfil,
 } from '@/lib/store';
+import { trpc } from '@/lib/trpc';
 
 interface DataContextType {
   data: DadosPrecificacao;
@@ -78,10 +79,43 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [perfil, setPerfilState] = useState<PerfilProfissional>(() => loadPerfil());
 
   const isRegistered = lead !== null;
+  const syncTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const saveMutation = trpc.pricing.save.useMutation();
+  const initialSyncDone = useRef(false);
+
+  // Load from server on first mount when lead exists
+  const { data: serverResult } = trpc.pricing.load.useQuery(
+    { email: lead?.email ?? '' },
+    { enabled: !!lead?.email && !initialSyncDone.current },
+  );
 
   useEffect(() => {
+    if (serverResult?.data && !initialSyncDone.current) {
+      initialSyncDone.current = true;
+      const serverData = serverResult.data as DadosPrecificacao;
+      if (serverData.custosFixos) {
+        setData(prev => ({ ...prev, ...serverData }));
+      }
+    }
+  }, [serverResult]);
+
+  // Save to localStorage immediately + debounce save to server
+  useEffect(() => {
     saveData(data);
-  }, [data]);
+
+    if (!lead?.email) return;
+    if (syncTimer.current) clearTimeout(syncTimer.current);
+    syncTimer.current = setTimeout(() => {
+      saveMutation.mutate(
+        { email: lead.email, data: data as unknown as Record<string, unknown> },
+        { onError: (err) => console.warn('[Sync] Failed to save to server:', err) },
+      );
+    }, 2000);
+
+    return () => {
+      if (syncTimer.current) clearTimeout(syncTimer.current);
+    };
+  }, [data, lead?.email]);
 
   const registerLead = useCallback((newLead: LeadData) => {
     saveLead(newLead);

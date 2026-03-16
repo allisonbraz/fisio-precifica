@@ -33,6 +33,7 @@ import {
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import PageHeader from '@/components/PageHeader';
+import ConfirmAction from '@/components/ConfirmAction';
 import CurrencyInput from '@/components/CurrencyInput';
 import { useData } from '@/contexts/DataContext';
 import {
@@ -212,12 +213,19 @@ export default function Servicos() {
                         <p className="text-xs text-muted-foreground mt-0.5">{servico.descricao}</p>
                       </div>
                       <div className="flex gap-1">
-                        <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg" onClick={() => openServicoDialog(servico)}>
+                        <Button variant="ghost" size="icon" className="h-9 w-9 rounded-lg" onClick={() => openServicoDialog(servico)}>
                           <Edit3 className="w-3.5 h-3.5" />
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg text-muted-foreground hover:text-destructive" onClick={() => { guardEdit(() => removeTipoServico(servico.id)); }}>
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </Button>
+                        <ConfirmAction
+                          title={`Excluir "${servico.nome}"?`}
+                          description="Este serviço será removido permanentemente. Planos de tratamento vinculados perderão a referência."
+                          confirmLabel="Excluir serviço"
+                          onConfirm={() => guardEdit(() => removeTipoServico(servico.id))}
+                        >
+                          <Button variant="ghost" size="icon" className="h-9 w-9 rounded-lg text-muted-foreground hover:text-destructive">
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                        </ConfirmAction>
                       </div>
                     </div>
 
@@ -332,9 +340,16 @@ export default function Servicos() {
                         <Button variant="ghost" size="sm" className="flex-1 rounded-lg text-xs" onClick={() => openPlanoDialog(plano)}>
                           <Edit3 className="w-3 h-3 mr-1" /> Editar
                         </Button>
-                        <Button variant="ghost" size="sm" className="rounded-lg text-xs text-muted-foreground hover:text-destructive" onClick={() => { guardEdit(() => removePlanoTratamento(plano.id)); }}>
-                          <Trash2 className="w-3 h-3" />
-                        </Button>
+                        <ConfirmAction
+                          title={`Excluir "${plano.nome}"?`}
+                          description="Este plano de tratamento será removido permanentemente."
+                          confirmLabel="Excluir plano"
+                          onConfirm={() => guardEdit(() => removePlanoTratamento(plano.id))}
+                        >
+                          <Button variant="ghost" size="sm" className="rounded-lg text-xs text-muted-foreground hover:text-destructive">
+                            <Trash2 className="w-3 h-3" />
+                          </Button>
+                        </ConfirmAction>
                       </div>
                     </motion.div>
                   );

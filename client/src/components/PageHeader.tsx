@@ -27,7 +27,7 @@ export default function PageHeader({ title, description, icon: Icon, action }: P
           </div>
         )}
         <div>
-          <h1 className="text-2xl font-heading font-bold text-foreground">{title}</h1>
+          <h1 className="text-xl sm:text-2xl font-heading font-bold text-foreground">{title}</h1>
           {description && (
             <p className="text-sm text-muted-foreground mt-0.5">{description}</p>
           )}

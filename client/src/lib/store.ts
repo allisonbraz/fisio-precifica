@@ -1,100 +1,24 @@
 /**
- * FisioPrecifica Data Store v3
- * Evolução Estrutural: Separação Custos Operacionais / Depreciação / Reservas Estratégicas
- * "O sistema deve proteger o profissional de decisões financeiras erradas."
+ * FisioPrecifica Data Store v4
+ * Barrel re-export + localStorage persistence + data migration
  */
 
-// ===== INTERFACES =====
+// Re-export everything from modules for backward compatibility
+export type * from './types';
+export * from './calculations';
+export * from './alerts';
+export * from './formatters';
 
-export interface LeadData {
-  nome: string;
-  whatsapp: string;
-  email: string;
-  registeredAt: string;
-}
-
-export interface PerfilProfissional {
-  nome: string;
-  cidade: string;
-  crefito: string;
-  especialidades: string;
-  logoUrl: string; // base64 data URL
-}
-
-export type FrequenciaCusto = 'mensal' | 'anual';
-
-export interface CustoFixo {
-  id: string;
-  nome: string;
-  valor: number;
-  frequencia: FrequenciaCusto;
-  observacao: string;
-  descricao: string;
-  /** If true, this item has an active installment (parcela) — blocks depreciation */
-  temParcelaAtiva?: boolean;
-  /** If true, this item is a depreciation/amortization entry */
-  isDepreciacao?: boolean;
-}
-
-export interface CustoVariavel {
-  id: string;
-  nome: string;
-  valor: number;
-  frequencia: FrequenciaCusto;
-  observacao: string;
-  descricao: string;
-}
-
-export interface ReservaEstrategica {
-  id: string;
-  nome: string;
-  valor: number;
-  frequencia: FrequenciaCusto;
-  descricao: string;
-}
-
-export interface TipoServico {
-  id: string;
-  nome: string;
-  duracaoMinutos: number;
-  custoAdicional: number;
-  multiplicadorPreco: number;
-  descricao: string;
-}
-
-export interface PlanoTratamento {
-  id: string;
-  nome: string;
-  tipoServicoId: string;
-  quantidadeSessoes: number;
-  descontoPercentual: number;
-  validade: number; // dias
-}
-
-export interface RegistroMensal {
-  id: string;
-  mes: string; // YYYY-MM
-  sessoesRealizadas: number;
-  receitaTotal: number;
-  custoFixoTotal: number;
-  custoVariavelTotal: number;
-  observacoes: string;
-}
-
-export interface DadosPrecificacao {
-  custosFixos: CustoFixo[];
-  custosVariaveis: CustoVariavel[];
-  reservasEstrategicas: ReservaEstrategica[];
-  sessoesMeta: number;
-  margemLucro: number;
-  precoDefinido: number;
-  tiposServico: TipoServico[];
-  planosTratamento: PlanoTratamento[];
-  registrosMensais: RegistroMensal[];
-  horasTrabalho: number;
-  diasUteis: number;
-  sessoesporDia: number;
-}
+import type {
+  CustoFixo,
+  CustoVariavel,
+  DadosPrecificacao,
+  FrequenciaCusto,
+  LeadData,
+  PerfilProfissional,
+  ReservaEstrategica,
+  TipoServico,
+} from './types';
 
 // ===== STORAGE KEYS =====
 
@@ -122,7 +46,6 @@ const defaultCustosFixos: CustoFixo[] = [
   { id: '14', nome: 'Outros custos fixos', valor: 0, frequencia: 'mensal', observacao: '', descricao: 'Qualquer outro custo fixo não listado acima. Ex: estacionamento, uniformes, etc.' },
 ];
 
-// Depreciação como custo fixo especial (isDepreciacao = true)
 const defaultDepreciacao: CustoFixo[] = [
   { id: 'dep1', nome: 'Depreciação de equipamentos', valor: 0, frequencia: 'mensal', observacao: '', descricao: 'Consumo financeiro de equipamentos ao longo do tempo. Ex: Maca de R$ 3.600 ÷ 60 meses = R$ 60/mês. Não pode coexistir com parcela ativa do mesmo bem.', isDepreciacao: true, temParcelaAtiva: false },
   { id: 'dep2', nome: 'Depreciação de mobiliário', valor: 0, frequencia: 'mensal', observacao: '', descricao: 'Desgaste de móveis (mesas, cadeiras, armários). Ex: Mobiliário de R$ 6.000 ÷ 120 meses = R$ 50/mês.', isDepreciacao: true, temParcelaAtiva: false },
@@ -184,7 +107,7 @@ const defaultPerfil: PerfilProfissional = {
   logoUrl: '',
 };
 
-// ===== LOAD / SAVE =====
+// ===== MIGRATION HELPERS =====
 
 const CUSTOS_FIXOS_NAME_MAP: Record<string, string> = {
   'CREFITO': 'CREFITO ou outro conselho de classe',
@@ -196,7 +119,6 @@ const CUSTOS_FIXOS_NAME_MAP: Record<string, string> = {
   'Aluguel consultório': 'Aluguel do consultório/sala',
 };
 
-// Items that should be migrated from custos to reservas
 const ITEMS_TO_MIGRATE_TO_RESERVAS = new Set([
   'cursos e capacitação',
   'aquisição e manutenção de equipamentos',
@@ -206,38 +128,35 @@ function findDefaultByName(nome: string, defaults: { nome: string; descricao: st
   const normalized = nome.toLowerCase().trim();
   const exact = defaults.find(d => d.nome.toLowerCase().trim() === normalized);
   if (exact) return exact;
-  const partial = defaults.find(d =>
+  return defaults.find(d =>
     d.nome.toLowerCase().includes(normalized) || normalized.includes(d.nome.toLowerCase())
   );
-  return partial;
 }
+
+// ===== LOAD / SAVE =====
 
 export function loadData(): DadosPrecificacao {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
       const parsed = JSON.parse(stored);
-      // Migrate old "pacotes" to "planosTratamento"
       if (parsed.pacotes && !parsed.planosTratamento) {
         parsed.planosTratamento = parsed.pacotes;
         delete parsed.pacotes;
       }
 
-      // Old default observacoes that should be cleared
       const STALE_OBSERVACOES = new Set([
         'anuidade ÷ 12 meses', 'anuidade ÷ 12', 'sua retirada mensal',
         'site, redes sociais', 'atendimento domiciliar',
         'condomínio + iptu', 'gel, eletrodos, etc.',
       ]);
 
-      // Migrate custos fixos
       if (parsed.custosFixos) {
-        // Remove items that should now be reservas (if they have no value set)
         const migratedToReservas: any[] = [];
         parsed.custosFixos = parsed.custosFixos.filter((c: any) => {
           if (ITEMS_TO_MIGRATE_TO_RESERVAS.has(c.nome.toLowerCase().trim())) {
             if (c.valor > 0) migratedToReservas.push(c);
-            return false; // Remove from custos fixos
+            return false;
           }
           return true;
         });
@@ -260,61 +179,43 @@ export function loadData(): DadosPrecificacao {
           };
         });
 
-        // Deduplicate: if multiple items have the same name after mapping, keep the one with higher value
         const deduped = new Map<string, any>();
         for (const c of parsed.custosFixos) {
           const key = c.nome.toLowerCase().trim();
           const existing = deduped.get(key);
-          if (!existing || c.valor > existing.valor) {
-            deduped.set(key, c);
-          }
+          if (!existing || c.valor > existing.valor) deduped.set(key, c);
         }
         parsed.custosFixos = Array.from(deduped.values());
 
-        // Add missing default custos fixos and depreciação
         const existingNames = new Set(parsed.custosFixos.map((c: any) => c.nome.toLowerCase()));
         for (const def of [...defaultCustosFixos, ...defaultDepreciacao]) {
-          if (!existingNames.has(def.nome.toLowerCase())) {
-            parsed.custosFixos.push({ ...def });
-          }
+          if (!existingNames.has(def.nome.toLowerCase())) parsed.custosFixos.push({ ...def });
         }
 
-        // If we migrated items with values to reservas, add them
         if (migratedToReservas.length > 0 && !parsed.reservasEstrategicas) {
           parsed.reservasEstrategicas = [...defaultReservasEstrategicas];
         }
       }
 
-      // Migrate custos variáveis
       if (parsed.custosVariaveis) {
         parsed.custosVariaveis = parsed.custosVariaveis.map((c: any) => {
           const defaultById = defaultCustosVariaveis.find(d => d.id === c.id);
           const defaultByName = findDefaultByName(c.nome, defaultCustosVariaveis);
           const matched = defaultById || defaultByName;
-          return {
-            ...c,
-            frequencia: c.frequencia || 'mensal',
-            descricao: matched?.descricao || c.descricao || '',
-          };
+          return { ...c, frequencia: c.frequencia || 'mensal', descricao: matched?.descricao || c.descricao || '' };
         });
         const existingNames = new Set(parsed.custosVariaveis.map((c: any) => c.nome.toLowerCase()));
         for (const def of defaultCustosVariaveis) {
-          if (!existingNames.has(def.nome.toLowerCase())) {
-            parsed.custosVariaveis.push({ ...def });
-          }
+          if (!existingNames.has(def.nome.toLowerCase())) parsed.custosVariaveis.push({ ...def });
         }
       }
 
-      // Initialize reservas if not present
       if (!parsed.reservasEstrategicas) {
         parsed.reservasEstrategicas = [...defaultReservasEstrategicas];
       } else {
-        // Add missing default reservas
         const existingNames = new Set(parsed.reservasEstrategicas.map((r: any) => r.nome.toLowerCase()));
         for (const def of defaultReservasEstrategicas) {
-          if (!existingNames.has(def.nome.toLowerCase())) {
-            parsed.reservasEstrategicas.push({ ...def });
-          }
+          if (!existingNames.has(def.nome.toLowerCase())) parsed.reservasEstrategicas.push({ ...def });
         }
       }
 
@@ -327,11 +228,8 @@ export function loadData(): DadosPrecificacao {
 }
 
 export function saveData(data: DadosPrecificacao): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-  } catch (e) {
-    console.error('Erro ao salvar dados:', e);
-  }
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }
+  catch (e) { console.error('Erro ao salvar dados:', e); }
 }
 
 export function resetData(): DadosPrecificacao {
@@ -345,9 +243,7 @@ export function loadLead(): LeadData | null {
   try {
     const stored = localStorage.getItem(LEAD_KEY);
     if (stored) return JSON.parse(stored);
-  } catch (e) {
-    console.error('Erro ao carregar lead:', e);
-  }
+  } catch (e) { console.error('Erro ao carregar lead:', e); }
   return null;
 }
 
@@ -355,23 +251,18 @@ export function saveLead(lead: LeadData): void {
   try {
     localStorage.setItem(LEAD_KEY, JSON.stringify(lead));
     const list = loadLeadsList();
-    const exists = list.find(l => l.email === lead.email);
-    if (!exists) {
+    if (!list.find(l => l.email === lead.email)) {
       list.push(lead);
       localStorage.setItem(LEADS_LIST_KEY, JSON.stringify(list));
     }
-  } catch (e) {
-    console.error('Erro ao salvar lead:', e);
-  }
+  } catch (e) { console.error('Erro ao salvar lead:', e); }
 }
 
 export function loadLeadsList(): LeadData[] {
   try {
     const stored = localStorage.getItem(LEADS_LIST_KEY);
     if (stored) return JSON.parse(stored);
-  } catch (e) {
-    console.error('Erro ao carregar leads:', e);
-  }
+  } catch (e) { console.error('Erro ao carregar leads:', e); }
   return [];
 }
 
@@ -381,279 +272,11 @@ export function loadPerfil(): PerfilProfissional {
   try {
     const stored = localStorage.getItem(PERFIL_KEY);
     if (stored) return { ...defaultPerfil, ...JSON.parse(stored) };
-  } catch (e) {
-    console.error('Erro ao carregar perfil:', e);
-  }
+  } catch (e) { console.error('Erro ao carregar perfil:', e); }
   return { ...defaultPerfil };
 }
 
 export function savePerfil(perfil: PerfilProfissional): void {
-  try {
-    localStorage.setItem(PERFIL_KEY, JSON.stringify(perfil));
-  } catch (e) {
-    console.error('Erro ao salvar perfil:', e);
-  }
-}
-
-// ===== CALCULATION HELPERS =====
-
-/** Get the effective monthly value of a cost (divides annual by 12) */
-export function getValorMensal(custo: { valor: number; frequencia: FrequenciaCusto }): number {
-  return custo.frequencia === 'anual' ? custo.valor / 12 : custo.valor;
-}
-
-// --- BLOCO 1: Custos Operacionais (sem depreciação) ---
-
-/** Total custos fixos operacionais (exclui depreciação) */
-export function calcularTotalCustosOperacionais(custos: CustoFixo[]): number {
-  return custos
-    .filter(c => !c.isDepreciacao)
-    .reduce((sum, c) => sum + getValorMensal(c), 0);
-}
-
-// --- BLOCO 2: Depreciação / Amortização ---
-
-/** Total depreciação mensal (somente itens sem parcela ativa) */
-export function calcularTotalDepreciacao(custos: CustoFixo[]): number {
-  return custos
-    .filter(c => c.isDepreciacao && !c.temParcelaAtiva)
-    .reduce((sum, c) => sum + getValorMensal(c), 0);
-}
-
-// --- BLOCO 3: Reservas Estratégicas ---
-
-/** Total reservas estratégicas mensais */
-export function calcularTotalReservas(reservas: ReservaEstrategica[]): number {
-  return reservas.reduce((sum, r) => sum + getValorMensal(r), 0);
-}
-
-// --- Combined calculations ---
-
-/** Total custos fixos (operacionais + depreciação efetiva) — for backward compat */
-export function calcularTotalCustosFixos(custos: CustoFixo[]): number {
-  return calcularTotalCustosOperacionais(custos) + calcularTotalDepreciacao(custos);
-}
-
-export function calcularTotalCustosVariaveis(custos: CustoVariavel[]): number {
-  return custos.reduce((sum, c) => sum + getValorMensal(c), 0);
-}
-
-/** Custo Total Mensal = Custos Operacionais + Depreciação + Custos Variáveis (SEM reservas) */
-export function calcularCustoTotalMensal(data: DadosPrecificacao): number {
-  return calcularTotalCustosFixos(data.custosFixos) + calcularTotalCustosVariaveis(data.custosVariaveis);
-}
-
-export function calcularCustoFixoPorSessao(data: DadosPrecificacao): number {
-  if (data.sessoesMeta === 0) return 0;
-  return calcularTotalCustosFixos(data.custosFixos) / data.sessoesMeta;
-}
-
-export function calcularCustoVariavelPorSessao(data: DadosPrecificacao): number {
-  if (data.sessoesMeta === 0) return 0;
-  return calcularTotalCustosVariaveis(data.custosVariaveis) / data.sessoesMeta;
-}
-
-/** Custo por Sessão = (Custos Operacionais + Depreciação + Variáveis) ÷ Sessões */
-export function calcularCustoTotalPorSessao(data: DadosPrecificacao): number {
-  return calcularCustoFixoPorSessao(data) + calcularCustoVariavelPorSessao(data);
-}
-
-/** Preço com margem = Custo por Sessão × (1 + margem) */
-export function calcularPrecoMinimo(data: DadosPrecificacao): number {
-  const custoTotal = calcularCustoTotalPorSessao(data);
-  return custoTotal * (1 + data.margemLucro);
-}
-
-/** Calculate margin from a defined price */
-export function calcularMargemDoPreco(data: DadosPrecificacao, preco: number): number {
-  const custoTotal = calcularCustoTotalPorSessao(data);
-  if (custoTotal === 0) return preco > 0 ? 1 : 0;
-  return (preco - custoTotal) / custoTotal;
-}
-
-// --- LUCRO: duas camadas ---
-
-/** Lucro Operacional = Receita - (Custos Operacionais + Depreciação + Variáveis) */
-export function calcularLucroOperacional(data: DadosPrecificacao, precoSessao: number): number {
-  const receita = precoSessao * data.sessoesMeta;
-  const custoTotal = calcularCustoTotalMensal(data);
-  return receita - custoTotal;
-}
-
-/** Lucro Disponível = Lucro Operacional - Reservas Estratégicas */
-export function calcularLucroDisponivel(data: DadosPrecificacao, precoSessao: number): number {
-  const lucroOp = calcularLucroOperacional(data, precoSessao);
-  const reservas = calcularTotalReservas(data.reservasEstrategicas);
-  return lucroOp - reservas;
-}
-
-/** Percentual do lucro destinado a reservas */
-export function calcularPercentualReservas(data: DadosPrecificacao, precoSessao: number): number {
-  const lucroOp = calcularLucroOperacional(data, precoSessao);
-  if (lucroOp <= 0) return 0;
-  const reservas = calcularTotalReservas(data.reservasEstrategicas);
-  return (reservas / lucroOp) * 100;
-}
-
-export function calcularPrecoServico(data: DadosPrecificacao, servico: TipoServico): number {
-  const precoBase = calcularPrecoMinimo(data);
-  return (precoBase * servico.multiplicadorPreco) + servico.custoAdicional;
-}
-
-export function calcularPrecoPlano(precoUnitario: number, plano: PlanoTratamento): number {
-  const total = precoUnitario * plano.quantidadeSessoes;
-  return total * (1 - plano.descontoPercentual / 100);
-}
-
-export function simularPreco(data: DadosPrecificacao, precoSessao: number): {
-  receitaMensal: number;
-  custoTotal: number;
-  lucroOperacional: number;
-  reservas: number;
-  lucroDisponivel: number;
-  margem: number;
-  viavel: boolean;
-} {
-  const receitaMensal = precoSessao * data.sessoesMeta;
-  const custoTotal = calcularCustoTotalMensal(data);
-  const lucroOperacional = receitaMensal - custoTotal;
-  const reservas = calcularTotalReservas(data.reservasEstrategicas);
-  const lucroDisponivel = lucroOperacional - reservas;
-  const margem = receitaMensal > 0 ? (lucroOperacional / receitaMensal) * 100 : 0;
-  return {
-    receitaMensal,
-    custoTotal,
-    lucroOperacional,
-    reservas,
-    lucroDisponivel,
-    margem,
-    viavel: lucroOperacional >= 0,
-  };
-}
-
-export function calcularPontoEquilibrio(data: DadosPrecificacao, precoSessao: number): number {
-  const custoFixoTotal = calcularTotalCustosFixos(data.custosFixos);
-  const custoVarPorSessao = calcularCustoVariavelPorSessao(data);
-  const contribuicao = precoSessao - custoVarPorSessao;
-  if (contribuicao <= 0) return Infinity;
-  return Math.ceil(custoFixoTotal / contribuicao);
-}
-
-export function calcularHorasTrabalhadas(data: DadosPrecificacao): number {
-  return data.diasUteis * data.horasTrabalho;
-}
-
-export function calcularTaxaOcupacao(data: DadosPrecificacao): number {
-  const capacidadeMaxima = data.diasUteis * data.sessoesporDia;
-  if (capacidadeMaxima === 0) return 0;
-  return (data.sessoesMeta / capacidadeMaxima) * 100;
-}
-
-export function calcularValorHora(data: DadosPrecificacao, precoSessao: number, duracaoMinutos: number = 50): number {
-  return (precoSessao / duracaoMinutos) * 60;
-}
-
-// ===== ALERTAS INTELIGENTES =====
-
-export interface AlertaFinanceiro {
-  tipo: 'warning' | 'info' | 'danger';
-  mensagem: string;
-  detalhe: string;
-}
-
-export function gerarAlertas(data: DadosPrecificacao, precoSessao: number): AlertaFinanceiro[] {
-  const alertas: AlertaFinanceiro[] = [];
-
-  // 1. Depreciação com parcela ativa
-  const depComParcela = data.custosFixos.filter(c => c.isDepreciacao && c.temParcelaAtiva && c.valor > 0);
-  if (depComParcela.length > 0) {
-    alertas.push({
-      tipo: 'danger',
-      mensagem: 'Equipamento com parcela ativa não pode ter depreciação',
-      detalhe: `${depComParcela.map(c => c.nome).join(', ')} — enquanto houver parcela ativa, a depreciação é bloqueada automaticamente.`,
-    });
-  }
-
-  // 2. Lucro positivo sem reservas
-  const lucroOp = calcularLucroOperacional(data, precoSessao);
-  const totalReservas = calcularTotalReservas(data.reservasEstrategicas);
-  if (lucroOp > 0 && totalReservas === 0) {
-    alertas.push({
-      tipo: 'warning',
-      mensagem: 'Seu lucro é positivo, mas você não está formando reservas',
-      detalhe: 'Recomendamos destinar pelo menos 10% a 20% do lucro operacional para reservas estratégicas (emergência, férias, expansão).',
-    });
-  }
-
-  // 3. Lucro insuficiente para cobrir reservas
-  if (lucroOp > 0 && totalReservas > lucroOp) {
-    alertas.push({
-      tipo: 'danger',
-      mensagem: 'Suas reservas excedem o lucro operacional',
-      detalhe: `Lucro operacional: ${formatarMoeda(lucroOp)} | Reservas: ${formatarMoeda(totalReservas)}. Reduza as reservas ou aumente o preço.`,
-    });
-  }
-
-  // 4. Margem muito baixa
-  const custoSessao = calcularCustoTotalPorSessao(data);
-  if (custoSessao > 0 && precoSessao > 0) {
-    const margem = ((precoSessao - custoSessao) / custoSessao) * 100;
-    if (margem < 15) {
-      alertas.push({
-        tipo: 'danger',
-        mensagem: 'Margem de lucro arriscada (abaixo de 15%)',
-        detalhe: `Sua margem atual é de ${margem.toFixed(1)}%. Abaixo de 15% qualquer imprevisto pode gerar prejuízo.`,
-      });
-    }
-  }
-
-  // 5. Preço abaixo do custo
-  if (precoSessao > 0 && precoSessao < custoSessao) {
-    alertas.push({
-      tipo: 'danger',
-      mensagem: 'Preço abaixo do custo por sessão',
-      detalhe: `Você está cobrando ${formatarMoeda(precoSessao)} mas seu custo é ${formatarMoeda(custoSessao)}. Cada sessão gera prejuízo.`,
-    });
-  }
-
-  return alertas;
-}
-
-// ===== FORMATTERS =====
-
-export function formatarMoeda(valor: number): string {
-  return new Intl.NumberFormat('pt-BR', {
-    style: 'currency',
-    currency: 'BRL',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(valor);
-}
-
-export function formatarPercentual(valor: number): string {
-  return new Intl.NumberFormat('pt-BR', {
-    style: 'percent',
-    minimumFractionDigits: 1,
-    maximumFractionDigits: 1,
-  }).format(valor / 100);
-}
-
-export function generateId(): string {
-  return Date.now().toString(36) + Math.random().toString(36).substr(2);
-}
-
-export function exportarDados(data: DadosPrecificacao): string {
-  return JSON.stringify(data, null, 2);
-}
-
-export function importarDados(json: string): DadosPrecificacao | null {
-  try {
-    const parsed = JSON.parse(json);
-    if (parsed.custosFixos && parsed.custosVariaveis) {
-      return { ...defaultData, ...parsed };
-    }
-  } catch (e) {
-    console.error('Erro ao importar dados:', e);
-  }
-  return null;
+  try { localStorage.setItem(PERFIL_KEY, JSON.stringify(perfil)); }
+  catch (e) { console.error('Erro ao salvar perfil:', e); }
 }

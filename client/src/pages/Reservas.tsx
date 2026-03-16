@@ -43,6 +43,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import PageHeader from '@/components/PageHeader';
+import ConfirmAction from '@/components/ConfirmAction';
 import CurrencyInput from '@/components/CurrencyInput';
 import StatCard from '@/components/StatCard';
 import { useData } from '@/contexts/DataContext';
@@ -159,6 +160,18 @@ export default function Reservas() {
         }
       />
 
+      {/* Educational info box */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="bg-primary/5 border border-primary/20 rounded-xl p-4 flex items-start gap-3"
+      >
+        <Info className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
+        <p className="text-sm text-foreground/80">
+          Reservas são valores que você escolhe guardar do seu lucro para necessidades futuras, emergências e crescimento. Diferente dos custos (que são obrigatórios), reservas são decisões estratégicas.
+        </p>
+      </motion.div>
+
       {/* Principle banner */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
@@ -264,9 +277,9 @@ export default function Reservas() {
             {data.reservasEstrategicas.map((reserva, index) => (
               <motion.div
                 key={reserva.id}
-                initial={{ opacity: 0, height: 0 }}
+                initial={false}
                 animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
+                exit={{ opacity: 0, height: 0, transition: { duration: 0.2 } }}
                 className={`px-4 py-3 ${index < data.reservasEstrategicas.length - 1 ? 'border-b border-border/50' : ''}`}
               >
                 <div className="grid grid-cols-[1fr_auto] gap-2 items-start">
@@ -302,23 +315,24 @@ export default function Reservas() {
                         disabled={!isRegistered}
                       />
                     </div>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-muted-foreground hover:text-destructive rounded-lg flex-shrink-0"
-                          disabled={!isRegistered}
-                          onClick={() => {
-                            zeroReserva(reserva.id);
-                            toast.info(`${reserva.nome} zerada`);
-                          }}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>Zerar valor</TooltipContent>
-                    </Tooltip>
+                    <ConfirmAction
+                      title={`Zerar "${reserva.nome}"?`}
+                      description="O valor desta reserva será zerado (R$ 0,00). O item não será excluído."
+                      confirmLabel="Zerar valor"
+                      onConfirm={() => {
+                        zeroReserva(reserva.id);
+                        toast.info(`${reserva.nome} zerada`);
+                      }}
+                    >
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:text-destructive rounded-lg flex-shrink-0"
+                        disabled={!isRegistered}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </ConfirmAction>
                   </div>
                 </div>
               </motion.div>

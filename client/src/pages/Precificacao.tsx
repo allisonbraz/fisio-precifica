@@ -5,7 +5,7 @@
  * Includes: jornada de trabalho, margin bands, lucro explanation
  */
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
   Calculator,
@@ -17,7 +17,9 @@ import {
   Clock,
   Calendar,
   Target,
+  Download,
 } from 'lucide-react';
+import { Link } from 'wouter';
 import { Input } from '@/components/ui/input';
 import { Slider } from '@/components/ui/slider';
 import {
@@ -52,6 +54,7 @@ import {
   ResponsiveContainer,
   Cell,
 } from 'recharts';
+import { CHART_TOOLTIP_STYLE } from '@/lib/utils';
 import { toast } from 'sonner';
 
 // Margin band helper
@@ -96,6 +99,20 @@ export default function Precificacao() {
   } = useData();
 
   const [activeMode, setActiveMode] = useState<'margem' | 'preco'>('margem');
+
+  // Read price from URL (coming from Simulação page)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const precoParam = params.get('preco');
+    if (precoParam) {
+      const preco = parseFloat(precoParam);
+      if (!isNaN(preco) && preco >= 30 && preco <= 9999) {
+        handlePrecoChange(preco);
+        toast.info(`Preço de ${formatarMoeda(preco)} aplicado da simulação`);
+        window.history.replaceState({}, '', '/precificacao');
+      }
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const metrics = useMemo(() => {
     const custoOperacional = calcularTotalCustosOperacionais(data.custosFixos);
@@ -160,6 +177,11 @@ export default function Precificacao() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left: Parameters */}
         <div className="lg:col-span-1 space-y-4">
+          {!isRegistered && (
+            <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/30 rounded-xl p-3 text-xs text-amber-700 dark:text-amber-400">
+              Cadastre-se gratuitamente para editar os campos abaixo.
+            </div>
+          )}
           {/* Jornada de Trabalho — moved from Configurações */}
           <motion.div
             initial={{ opacity: 0, x: -20 }}
@@ -174,7 +196,17 @@ export default function Precificacao() {
             <div className="grid grid-cols-2 gap-3">
               {/* Horas por dia */}
               <div>
-                <label className="text-xs font-medium text-muted-foreground mb-1 block">Horas/dia</label>
+                <label className="text-xs font-medium text-muted-foreground mb-1 flex items-center gap-1">
+                  Horas/dia
+                  <Tooltip>
+                    <TooltipTrigger>
+                      <Info className="w-3 h-3 text-muted-foreground" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="max-w-[200px] text-xs">Quantas horas por dia você dedica a atendimentos</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </label>
                 <Input
                   type="number"
                   value={data.horasTrabalho}
@@ -191,7 +223,17 @@ export default function Precificacao() {
 
               {/* Dias úteis */}
               <div>
-                <label className="text-xs font-medium text-muted-foreground mb-1 block">Dias úteis/mês</label>
+                <label className="text-xs font-medium text-muted-foreground mb-1 flex items-center gap-1">
+                  Dias úteis/mês
+                  <Tooltip>
+                    <TooltipTrigger>
+                      <Info className="w-3 h-3 text-muted-foreground" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="max-w-[200px] text-xs">Dias que você atende por mês, descontando fins de semana e feriados</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </label>
                 <Input
                   type="number"
                   value={data.diasUteis}
@@ -251,7 +293,17 @@ export default function Precificacao() {
             <h3 className="font-heading font-semibold text-foreground">Meta de Sessões</h3>
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label className="text-sm font-medium text-foreground">Sessões por mês</label>
+                <label className="text-sm font-medium text-foreground flex items-center gap-1">
+                  Sessões por mês
+                  <Tooltip>
+                    <TooltipTrigger>
+                      <Info className="w-3 h-3 text-muted-foreground" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="max-w-[200px] text-xs">Meta realista de pacientes que você espera atender. Pode ser menor que a capacidade máxima</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </label>
                 <span className="text-sm font-mono font-medium text-primary">{data.sessoesMeta}</span>
               </div>
               <Slider
@@ -381,6 +433,16 @@ export default function Precificacao() {
             </motion.div>
           </div>
 
+          {/* PDF Report link */}
+          <div className="flex justify-end">
+            <Link href="/perfil#relatorio">
+              <span className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 cursor-pointer transition-colors">
+                <Download className="w-3 h-3" />
+                Baixar relatório completo
+              </span>
+            </Link>
+          </div>
+
           {/* Breakdown Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="bg-card rounded-xl border border-border p-4">
@@ -490,12 +552,7 @@ export default function Precificacao() {
                   <YAxis type="category" dataKey="name" tick={{ fontSize: 12 }} stroke="#8a7e74" width={120} />
                   <RechartsTooltip
                     formatter={(value: number) => formatarMoeda(value)}
-                    contentStyle={{
-                      borderRadius: '12px',
-                      border: '1px solid #e5e0d8',
-                      boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
-                      fontSize: '13px',
-                    }}
+                    contentStyle={CHART_TOOLTIP_STYLE}
                   />
                   <Bar dataKey="valor" radius={[0, 8, 8, 0]}>
                     {breakdownData.map((entry, index) => (

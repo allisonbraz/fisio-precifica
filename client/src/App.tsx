@@ -2,11 +2,14 @@ import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/NotFound";
 import { Route, Switch } from "wouter";
+import { MotionConfig } from "framer-motion";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { DataProvider } from "./contexts/DataContext";
 import Layout from "./components/Layout";
 import LeadGate from "./components/LeadGate";
+import OnboardingWizard from "./components/OnboardingWizard";
+import { useData } from "./contexts/DataContext";
 import Home from "./pages/Home";
 import Custos from "./pages/Custos";
 import Precificacao from "./pages/Precificacao";
@@ -20,6 +23,7 @@ import Leads from "./pages/Leads";
 import Reservas from "./pages/Reservas";
 
 function Router() {
+  const { isRegistered } = useData();
   return (
     <Layout>
       <Switch>
@@ -38,6 +42,7 @@ function Router() {
         <Route component={NotFound} />
       </Switch>
       <LeadGate />
+      <OnboardingWizard isRegistered={isRegistered} />
     </Layout>
   );
 }
@@ -45,14 +50,16 @@ function Router() {
 function App() {
   return (
     <ErrorBoundary>
-      <ThemeProvider defaultTheme="light">
-        <DataProvider>
-          <TooltipProvider>
-            <Toaster richColors position="top-right" />
-            <Router />
-          </TooltipProvider>
-        </DataProvider>
-      </ThemeProvider>
+      <MotionConfig reducedMotion="user">
+        <ThemeProvider defaultTheme="light">
+          <DataProvider>
+            <TooltipProvider>
+              <Toaster richColors position="top-right" />
+              <Router />
+            </TooltipProvider>
+          </DataProvider>
+        </ThemeProvider>
+      </MotionConfig>
     </ErrorBoundary>
   );
 }

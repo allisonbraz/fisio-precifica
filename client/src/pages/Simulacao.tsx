@@ -16,7 +16,10 @@ import {
   DollarSign,
   Percent,
   Info,
+  ArrowRight,
 } from 'lucide-react';
+import { Link } from 'wouter';
+import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import PageHeader from '@/components/PageHeader';
 import { useData } from '@/contexts/DataContext';
@@ -41,6 +44,7 @@ import {
   ComposedChart,
   Bar,
 } from 'recharts';
+import { CHART_TOOLTIP_STYLE } from '@/lib/utils';
 
 export default function Simulacao() {
   const { data } = useData();
@@ -240,28 +244,35 @@ export default function Simulacao() {
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="bg-muted/30 rounded-xl p-3">
-              <p className="text-xs text-muted-foreground">Receita Mensal</p>
-              <p className="text-lg font-mono font-bold text-foreground">{formatarMoeda(customSim.receitaMensal)}</p>
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-muted/30 rounded-xl p-3">
+                <p className="text-xs text-muted-foreground">Receita Mensal</p>
+                <p className="text-lg font-mono font-bold text-foreground">{formatarMoeda(customSim.receitaMensal)}</p>
+              </div>
+              <div className="bg-muted/30 rounded-xl p-3">
+                <p className="text-xs text-muted-foreground">Lucro Operacional</p>
+                <p className={`text-lg font-mono font-bold ${customSim.lucroOperacional >= 0 ? 'text-sage-dark' : 'text-destructive'}`}>
+                  {formatarMoeda(customSim.lucroOperacional)}
+                </p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">O que sobra para reinvestir, reserva e crescer</p>
+              </div>
+              <div className="bg-muted/30 rounded-xl p-3">
+                <p className="text-xs text-muted-foreground">Margem</p>
+                <p className="text-lg font-mono font-bold text-foreground">{customSim.margem.toFixed(1)}%</p>
+              </div>
+              <div className="bg-muted/30 rounded-xl p-3">
+                <p className="text-xs text-muted-foreground">Ponto de Equilíbrio</p>
+                <p className="text-lg font-mono font-bold text-foreground">
+                  {customPE === Infinity ? '—' : `${customPE} sessões`}
+                </p>
+              </div>
             </div>
-            <div className="bg-muted/30 rounded-xl p-3">
-              <p className="text-xs text-muted-foreground">Lucro Operacional</p>
-              <p className={`text-lg font-mono font-bold ${customSim.lucroOperacional >= 0 ? 'text-sage-dark' : 'text-destructive'}`}>
-                {formatarMoeda(customSim.lucroOperacional)}
-              </p>
-              <p className="text-[10px] text-muted-foreground mt-0.5">O que sobra para reinvestir, reserva e crescer</p>
-            </div>
-            <div className="bg-muted/30 rounded-xl p-3">
-              <p className="text-xs text-muted-foreground">Margem</p>
-              <p className="text-lg font-mono font-bold text-foreground">{customSim.margem.toFixed(1)}%</p>
-            </div>
-            <div className="bg-muted/30 rounded-xl p-3">
-              <p className="text-xs text-muted-foreground">Ponto de Equilíbrio</p>
-              <p className="text-lg font-mono font-bold text-foreground">
-                {customPE === Infinity ? '—' : `${customPE} sessões`}
-              </p>
-            </div>
+            <Link href={`/precificacao?preco=${precoCustom}`}>
+              <Button className="w-full rounded-xl gap-2">
+                Usar este preço na Precificação <ArrowRight className="w-4 h-4" />
+              </Button>
+            </Link>
           </div>
         </div>
       </motion.div>
@@ -297,7 +308,7 @@ export default function Simulacao() {
                   return [formatarMoeda(value), labels[name] || name];
                 }}
                 labelFormatter={(v) => `Preço: R$ ${v}`}
-                contentStyle={{ borderRadius: '12px', border: '1px solid #e5e0d8', boxShadow: '0 4px 12px rgba(0,0,0,0.08)', fontSize: '13px' }}
+                contentStyle={CHART_TOOLTIP_STYLE}
               />
               {/* Custo line (constant) — this is the key fix */}
               <Line type="monotone" dataKey="custo" stroke="#c2785c" strokeWidth={2} strokeDasharray="8 4" dot={false} name="custo" />
@@ -432,7 +443,7 @@ export default function Simulacao() {
                   const labels: Record<string, string> = { receita: 'Receita', custo: 'Custo', lucro: 'Lucro' };
                   return [formatarMoeda(value), labels[name] || name];
                 }}
-                contentStyle={{ borderRadius: '12px', border: '1px solid #e5e0d8', boxShadow: '0 4px 12px rgba(0,0,0,0.08)', fontSize: '13px' }}
+                contentStyle={CHART_TOOLTIP_STYLE}
               />
               <Bar dataKey="receita" fill="#7c9a82" radius={[6, 6, 0, 0]} name="receita" />
               <Bar dataKey="lucro" fill="#d4a853" radius={[6, 6, 0, 0]} name="lucro" />
@@ -458,17 +469,71 @@ export default function Simulacao() {
           <h3 className="font-heading font-semibold text-foreground">Tabela de Simulação</h3>
           <p className="text-sm text-muted-foreground mt-0.5">Comparação de diferentes preços por sessão</p>
         </div>
-        <div className="overflow-x-auto">
+
+        {/* Mobile cards */}
+        <div className="space-y-3 p-4 sm:hidden">
+          {precosSimulacao.map((sim) => (
+            <div
+              key={sim.preco}
+              className={`rounded-xl border p-4 space-y-2 ${
+                sim.preco === Math.round(precoPorSessao / 10) * 10 ? 'border-primary/30 bg-primary/5' : 'border-border'
+              } ${!sim.viavel ? 'opacity-60' : ''}`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-lg font-mono font-bold text-foreground">{formatarMoeda(sim.preco)}</span>
+                <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                  sim.diffPercent >= 0 ? 'bg-sage-light/50 text-sage-dark' : 'bg-destructive/10 text-destructive'
+                }`}>
+                  {sim.diffPercent >= 0 ? '+' : ''}{sim.diffPercent.toFixed(1)}% vs custo
+                </span>
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <div>
+                  <p className="text-xs text-muted-foreground">Receita</p>
+                  <p className="font-mono font-medium">{formatarMoeda(sim.receitaMensal)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Custo</p>
+                  <p className="font-mono font-medium">{formatarMoeda(sim.custoTotal)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Lucro</p>
+                  <p className={`font-mono font-bold ${sim.lucroOperacional >= 0 ? 'text-sage-dark' : 'text-destructive'}`}>
+                    {formatarMoeda(sim.lucroOperacional)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Margem</p>
+                  <p className="font-mono font-medium">{sim.margem.toFixed(1)}%</p>
+                </div>
+              </div>
+              <div>
+                {sim.viavel ? (
+                  <span className="inline-flex items-center gap-1 text-xs font-medium text-sage-dark bg-sage-light/30 px-2 py-0.5 rounded-full">
+                    <CheckCircle2 className="w-3 h-3" /> Viável
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 text-xs font-medium text-destructive bg-destructive/10 px-2 py-0.5 rounded-full">
+                    <XCircle className="w-3 h-3" /> Prejuízo
+                  </span>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Desktop table */}
+        <div className="overflow-x-auto hidden sm:block">
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-muted/30 text-xs text-muted-foreground uppercase tracking-wider">
-                <th className="text-left px-4 py-3 font-medium">Preço/Sessão</th>
-                <th className="text-right px-4 py-3 font-medium">% vs Custo</th>
-                <th className="text-right px-4 py-3 font-medium">Receita Mensal</th>
-                <th className="text-right px-4 py-3 font-medium">Custo Total</th>
-                <th className="text-right px-4 py-3 font-medium">Lucro Bruto</th>
-                <th className="text-right px-4 py-3 font-medium">Margem</th>
-                <th className="text-center px-4 py-3 font-medium">Status</th>
+                <th scope="col" className="text-left px-4 py-3 font-medium">Preço/Sessão</th>
+                <th scope="col" className="text-right px-4 py-3 font-medium">% vs Custo</th>
+                <th scope="col" className="text-right px-4 py-3 font-medium">Receita Mensal</th>
+                <th scope="col" className="text-right px-4 py-3 font-medium">Custo Total</th>
+                <th scope="col" className="text-right px-4 py-3 font-medium">Lucro Bruto</th>
+                <th scope="col" className="text-right px-4 py-3 font-medium">Margem</th>
+                <th scope="col" className="text-center px-4 py-3 font-medium">Status</th>
               </tr>
             </thead>
             <tbody>

@@ -59,6 +59,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+            aria-label="Fechar menu"
             className="fixed inset-0 bg-black/30 z-40 lg:hidden"
             onClick={() => setSidebarOpen(false)}
           />
@@ -79,7 +80,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 <Calculator className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h1 className="font-heading text-lg font-bold text-foreground leading-tight">FisioPrecifica</h1>
+                <span className="font-heading text-lg font-bold text-foreground leading-tight">FisioPrecifica</span>
                 <p className="text-xs text-muted-foreground">Precificação inteligente</p>
               </div>
             </div>
@@ -96,7 +97,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 <motion.div
                   whileHover={{ x: 4 }}
                   whileTap={{ scale: 0.98 }}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-1 ${
                     isActive
                       ? 'bg-primary/10 text-primary'
                       : 'text-muted-foreground hover:bg-muted hover:text-foreground'
@@ -170,6 +171,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               size="icon"
               onClick={() => setSidebarOpen(true)}
               className="rounded-xl"
+              aria-label="Abrir menu de navegação"
             >
               <Menu className="w-5 h-5" />
             </Button>

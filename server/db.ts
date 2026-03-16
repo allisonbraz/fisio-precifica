@@ -1,6 +1,6 @@
 import { eq, desc, sql, or } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users, InsertLead, leads } from "../drizzle/schema";
+import { InsertUser, users, InsertLead, leads, pricingData } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -111,7 +111,14 @@ export async function createLead(lead: InsertLead) {
     return null;
   }
   try {
-    await db.insert(leads).values(lead);
+    await db.insert(leads).values(lead)
+      .onDuplicateKeyUpdate({
+        set: {
+          nome: sql`VALUES(nome)`,
+          whatsapp: sql`VALUES(whatsapp)`,
+          source: sql`VALUES(source)`,
+        },
+      });
     return true;
   } catch (error) {
     console.error("[Database] Failed to create lead:", error);
@@ -151,67 +158,67 @@ export interface UnifiedContact {
   lastSignedIn: Date | null;
 }
 
+/** Max rows to fetch per table to prevent OOM */
+const UNIFIED_CONTACTS_MAX = 5000;
+
 /**
  * Get all contacts unified from both leads and users tables.
  * Deduplicates by email — if a lead and user share the same email, they merge.
+ * Limits per-table fetch to UNIFIED_CONTACTS_MAX rows for safety.
  */
 export async function getUnifiedContacts(limit = 100, offset = 0): Promise<{ items: UnifiedContact[]; total: number }> {
   const db = await getDb();
   if (!db) return { items: [], total: 0 };
 
-  // Get all leads
-  const allLeads = await db.select().from(leads).orderBy(desc(leads.createdAt));
+  // Fetch with safety limit to prevent OOM
+  const [allLeads, allUsers] = await Promise.all([
+    db.select().from(leads).orderBy(desc(leads.createdAt)).limit(UNIFIED_CONTACTS_MAX),
+    db.select().from(users).orderBy(desc(users.createdAt)).limit(UNIFIED_CONTACTS_MAX),
+  ]);
 
-  // Get all users (excluding admin/owner)
-  const allUsers = await db.select().from(users).orderBy(desc(users.createdAt));
+  // Build user lookup by email for O(1) merging
+  const userByEmail = new Map<string, typeof allUsers[number]>();
+  for (const user of allUsers) {
+    if (user.email) {
+      userByEmail.set(user.email.toLowerCase().trim(), user);
+    }
+  }
 
   // Merge by email
   const contactMap = new Map<string, UnifiedContact>();
 
-  // First, add all leads
   for (const lead of allLeads) {
     const key = lead.email.toLowerCase().trim();
-    if (!contactMap.has(key)) {
-      contactMap.set(key, {
-        id: `lead-${lead.id}`,
-        nome: lead.nome,
-        email: lead.email,
-        whatsapp: lead.whatsapp,
-        source: lead.source || 'banner',
-        hasOAuth: false,
-        createdAt: lead.createdAt,
-        lastSignedIn: null,
-      });
-    }
+    if (contactMap.has(key)) continue;
+
+    const matchedUser = userByEmail.get(key);
+    contactMap.set(key, {
+      id: `lead-${lead.id}`,
+      nome: lead.nome || matchedUser?.name || '',
+      email: lead.email,
+      whatsapp: lead.whatsapp || matchedUser?.whatsapp || '',
+      source: matchedUser ? `${lead.source || 'banner'} + oauth` : (lead.source || 'banner'),
+      hasOAuth: !!matchedUser,
+      createdAt: lead.createdAt,
+      lastSignedIn: matchedUser?.lastSignedIn ?? null,
+    });
+    // Mark user as consumed
+    if (matchedUser) userByEmail.delete(key);
   }
 
-  // Then, merge/add users
-  for (const user of allUsers) {
-    if (!user.email) continue;
-    const key = user.email.toLowerCase().trim();
-    const existing = contactMap.get(key);
-    if (existing) {
-      // Merge: lead already exists, enrich with OAuth info
-      existing.hasOAuth = true;
-      existing.lastSignedIn = user.lastSignedIn;
-      existing.source = `${existing.source} + oauth`;
-      // Use user name if lead name is empty
-      if (!existing.nome && user.name) existing.nome = user.name;
-      // Use user whatsapp if available
-      if (user.whatsapp && !existing.whatsapp) existing.whatsapp = user.whatsapp;
-    } else {
-      // New contact from OAuth only
-      contactMap.set(key, {
-        id: `user-${user.id}`,
-        nome: user.name || '',
-        email: user.email,
-        whatsapp: user.whatsapp || '',
-        source: user.source || 'oauth',
-        hasOAuth: true,
-        createdAt: user.createdAt,
-        lastSignedIn: user.lastSignedIn,
-      });
-    }
+  // Add remaining users (no matching lead)
+  for (const [key, user] of userByEmail) {
+    if (contactMap.has(key)) continue;
+    contactMap.set(key, {
+      id: `user-${user.id}`,
+      nome: user.name || '',
+      email: user.email!,
+      whatsapp: user.whatsapp || '',
+      source: user.source || 'oauth',
+      hasOAuth: true,
+      createdAt: user.createdAt,
+      lastSignedIn: user.lastSignedIn,
+    });
   }
 
   const all = Array.from(contactMap.values())
@@ -224,9 +231,46 @@ export async function getUnifiedContacts(limit = 100, offset = 0): Promise<{ ite
 }
 
 /**
- * Get all contacts for CSV export
+ * Get all contacts for CSV export (capped at safety limit)
  */
 export async function getUnifiedContactsForExport(): Promise<UnifiedContact[]> {
-  const result = await getUnifiedContacts(10000, 0);
+  const result = await getUnifiedContacts(UNIFIED_CONTACTS_MAX, 0);
   return result.items;
+}
+
+// ===== PRICING DATA =====
+
+export async function savePricingData(ownerEmail: string, data: unknown): Promise<boolean> {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot save pricing data: database not available");
+    return false;
+  }
+  try {
+    await db.insert(pricingData)
+      .values({ ownerEmail, data })
+      .onDuplicateKeyUpdate({ set: { data } });
+    return true;
+  } catch (error) {
+    console.error("[Database] Failed to save pricing data:", error);
+    throw error;
+  }
+}
+
+export async function loadPricingData(ownerEmail: string): Promise<unknown | null> {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot load pricing data: database not available");
+    return null;
+  }
+  try {
+    const result = await db.select({ data: pricingData.data })
+      .from(pricingData)
+      .where(eq(pricingData.ownerEmail, ownerEmail))
+      .limit(1);
+    return result.length > 0 ? result[0].data : null;
+  } catch (error) {
+    console.error("[Database] Failed to load pricing data:", error);
+    return null;
+  }
 }

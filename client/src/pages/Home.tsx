@@ -23,6 +23,8 @@ import {
   Wallet,
   Clock,
   Briefcase,
+  FileText,
+  Calendar,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import StatCard from '@/components/StatCard';
@@ -53,8 +55,10 @@ import {
   CartesianGrid,
   Tooltip,
 } from 'recharts';
+import { CHART_TOOLTIP_STYLE } from '@/lib/utils';
 
-const HERO_IMG = 'https://private-us-east-1.manuscdn.com/sessionFile/5x2XL9XPDtN8N7fV0K7m0w/sandbox/BaEZpg9wKuEDvQEdCXAyae-img-3_1771292314000_na1fn_ZGFzaGJvYXJkLWlsbHVzdHJhdGlvbg.png?x-oss-process=image/resize,w_1920,h_1920/format,webp/quality,q_80&Expires=1798761600&Policy=eyJTdGF0ZW1lbnQiOlt7IlJlc291cmNlIjoiaHR0cHM6Ly9wcml2YXRlLXVzLWVhc3QtMS5tYW51c2Nkbi5jb20vc2Vzc2lvbkZpbGUvNXgyWEw5WFBEdE44TjdmVjBLN20wdy9zYW5kYm94L0JhRVpwZzl3S3VFRHZRRWRDWEF5YWUtaW1nLTNfMTc3MTI5MjMxNDAwMF9uYTFmbl9aR0Z6YUdKdllYSmtMV2xzYkhWemRISmhkR2x2YmcucG5nP3gtb3NzLXByb2Nlc3M9aW1hZ2UvcmVzaXplLHdfMTkyMCxoXzE5MjAvZm9ybWF0LHdlYnAvcXVhbGl0eSxxXzgwIiwiQ29uZGl0aW9uIjp7IkRhdGVMZXNzVGhhbiI6eyJBV1M6RXBvY2hUaW1lIjoxNzk4NzYxNjAwfX19XX0_&Key-Pair-Id=K2HSFNDJXOU9YS&Signature=oSAqyCfZQd6G9TVeQ1ZXIg0IBvvJZbP0otbsogfk7KntheZWZ9jdb5H8XrNQ4wAi8s5sH8AKI-V62l9kDOaptgwigGmm6nQcUtfBh78L98f7xOf1Kvg-8UGp1Zolq1aaY3PcZjVzRthL9UUWgGVxVFKakjet1tw~t2HGSz9drMxZmxA0pDj4Vhiqfs~MCw1VwYtSMr51m1e0B23fTIZoppY9RNMRizY5xsCpq8PXG0Y8HN16Yc7RGf3UwiLl53K5r8JdhmWRI4zkB0guKRp~6RgHMHPXyAgKc1G9aF9L9ILqDz-rmfjna1ei3ZlP5zOJ3cOJKo6vo2OA1n84Ggookg__';
+/** Hero logo */
+const HERO_IMG = "/logo-fisio.png";
 
 const PIE_COLORS = ['#b5725d', '#7c9a82', '#d4a853', '#c2785c', '#5a7d64'];
 
@@ -113,7 +117,7 @@ export default function Home() {
   const hasData = metrics.custoMensal > 0;
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {/* Hero Banner */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -146,12 +150,16 @@ export default function Home() {
               </Link>
             </div>
           </div>
-          <div className="w-full lg:w-[340px] flex-shrink-0">
+          <div className="w-full lg:w-[240px] flex-shrink-0 flex flex-col items-center gap-3">
             <img
               src={HERO_IMG}
-              alt="Ilustração de precificação"
-              className="w-full h-auto rounded-2xl"
+              alt="Logo FisioPrecifica"
+              className="w-40 h-40 object-contain"
             />
+            <div className="text-center">
+              <p className="text-lg font-heading font-semibold text-terracotta">Precifique com</p>
+              <p className="text-lg font-heading font-semibold text-primary">confiança</p>
+            </div>
           </div>
         </div>
       </motion.div>
@@ -248,12 +256,7 @@ export default function Home() {
                     </Pie>
                     <Tooltip
                       formatter={(value: number) => formatarMoeda(value)}
-                      contentStyle={{
-                        borderRadius: '12px',
-                        border: '1px solid #e5e0d8',
-                        boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
-                        fontSize: '13px',
-                      }}
+                      contentStyle={CHART_TOOLTIP_STYLE}
                     />
                   </PieChart>
                 </ResponsiveContainer>
@@ -297,12 +300,7 @@ export default function Home() {
                   />
                   <Tooltip
                     formatter={(value: number) => formatarMoeda(value)}
-                    contentStyle={{
-                      borderRadius: '12px',
-                      border: '1px solid #e5e0d8',
-                      boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
-                      fontSize: '13px',
-                    }}
+                    contentStyle={CHART_TOOLTIP_STYLE}
                   />
                   <Bar dataKey="lucro" name="Lucro" fill="#7c9a82" radius={[6, 6, 0, 0]} />
                 </BarChart>
@@ -310,6 +308,28 @@ export default function Home() {
             </div>
           </motion.div>
         </div>
+      )}
+
+      {/* PDF Report CTA */}
+      {hasData && (
+        <Link href="/perfil#relatorio">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.35 }}
+            whileHover={{ y: -2, transition: { duration: 0.2 } }}
+            className="bg-gradient-to-r from-terracotta/10 via-card to-sage/10 rounded-2xl border border-border p-5 flex items-center gap-4 cursor-pointer group"
+          >
+            <div className="w-12 h-12 rounded-xl bg-terracotta/10 flex items-center justify-center flex-shrink-0">
+              <FileText className="w-6 h-6 text-terracotta" />
+            </div>
+            <div className="flex-1">
+              <h4 className="font-heading font-semibold text-foreground group-hover:text-primary transition-colors">Gerar Relatório PDF</h4>
+              <p className="text-sm text-muted-foreground">Baixe um relatório profissional com seus custos e preços</p>
+            </div>
+            <ArrowRight className="w-5 h-5 text-muted-foreground group-hover:translate-x-1 transition-transform" />
+          </motion.div>
+        </Link>
       )}
 
       {/* Quick Actions */}
@@ -337,6 +357,30 @@ export default function Home() {
           ))}
         </div>
       </div>
+      {/* Monthly record nudge */}
+      {(() => {
+        const currentMonth = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+        const hasCurrentMonthRecord = data.registrosMensais?.some(r => r.mes === currentMonth);
+        if (!hasCurrentMonthRecord && data.registrosMensais?.length > 0) {
+          return (
+            <Link href="/relatorios">
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-golden-light/20 border border-golden/30 rounded-2xl p-4 flex items-center gap-3 cursor-pointer group hover:bg-golden-light/30 transition-colors"
+              >
+                <Calendar className="w-5 h-5 text-golden flex-shrink-0" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-foreground">Registre seus resultados deste mês</p>
+                  <p className="text-xs text-muted-foreground">Mantenha o acompanhamento da evolução do seu consultório</p>
+                </div>
+                <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:translate-x-1 transition-transform" />
+              </motion.div>
+            </Link>
+          );
+        }
+        return null;
+      })()}
     </div>
   );
 }

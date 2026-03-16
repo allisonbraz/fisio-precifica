@@ -329,16 +329,55 @@ export default function Leads() {
           </div>
         ) : (
           <>
-            <div className="overflow-x-auto">
+            {/* Mobile card layout */}
+            <div className="space-y-3 p-4 sm:hidden">
+              {paginatedContacts.map((contact, idx) => (
+                <div key={contact.id} className="bg-muted/20 rounded-xl p-4 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-foreground">{contact.nome || '—'}</span>
+                    <SourceBadge source={contact.source} hasOAuth={contact.hasOAuth} />
+                  </div>
+                  <div className="space-y-1 text-sm">
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Mail className="w-3.5 h-3.5 flex-shrink-0" />
+                      <a href={`mailto:${contact.email}`} className="text-primary hover:underline truncate">{contact.email}</a>
+                    </div>
+                    {contact.whatsapp && (
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <Phone className="w-3.5 h-3.5 flex-shrink-0" />
+                        <a
+                          href={`https://wa.me/${contact.whatsapp.replace(/\D/g, '')}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sage-dark hover:underline"
+                        >
+                          {contact.whatsapp}
+                        </a>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground/70">
+                      <Calendar className="w-3 h-3 flex-shrink-0" />
+                      {new Date(contact.createdAt).toLocaleDateString('pt-BR')}
+                      {contact.lastSignedIn && (
+                        <span>· Último login: {new Date(contact.lastSignedIn).toLocaleDateString('pt-BR')}</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop table */}
+            <div className="overflow-x-auto hidden sm:block">
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-border bg-muted/30">
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">#</th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Nome</th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">E-mail</th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">WhatsApp</th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Origem</th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Data</th>
+                    <th scope="col" className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">#</th>
+                    <th scope="col" className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Nome</th>
+                    <th scope="col" className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">E-mail</th>
+                    <th scope="col" className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">WhatsApp</th>
+                    <th scope="col" className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Origem</th>
+                    <th scope="col" className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Data</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -404,6 +443,7 @@ export default function Leads() {
                     onClick={() => setPage(p => Math.max(0, p - 1))}
                     disabled={page === 0}
                     className="rounded-lg"
+                    aria-label="Página anterior"
                   >
                     <ChevronLeft className="w-4 h-4" />
                   </Button>
@@ -413,6 +453,7 @@ export default function Leads() {
                     onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
                     disabled={page >= totalPages - 1}
                     className="rounded-lg"
+                    aria-label="Próxima página"
                   >
                     <ChevronRight className="w-4 h-4" />
                   </Button>

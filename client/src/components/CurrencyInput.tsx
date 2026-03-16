@@ -57,12 +57,13 @@ export default function CurrencyInput({
 
   return (
     <div className={`relative ${className}`}>
-      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground font-mono font-medium">
+      <span aria-hidden="true" className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground font-mono font-medium">
         R$
       </span>
       <Input
         type="text"
         inputMode="decimal"
+        aria-label="Valor em reais"
         value={focused ? displayValue : formatForDisplay(value)}
         onChange={handleChange}
         onFocus={handleFocus}

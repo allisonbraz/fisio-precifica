@@ -55,6 +55,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import PageHeader from '@/components/PageHeader';
+import ConfirmAction from '@/components/ConfirmAction';
 import CurrencyInput from '@/components/CurrencyInput';
 import StatCard from '@/components/StatCard';
 import { useData } from '@/contexts/DataContext';
@@ -174,9 +175,9 @@ export default function Custos() {
     return (
       <motion.div
         key={custo.id}
-        initial={{ opacity: 0, height: 0 }}
+        initial={false}
         animate={{ opacity: 1, height: 'auto' }}
-        exit={{ opacity: 0, height: 0 }}
+        exit={{ opacity: 0, height: 0, transition: { duration: 0.2 } }}
         className={`px-4 py-3 ${index < total - 1 ? 'border-b border-border/50' : ''} ${isBlocked ? 'bg-destructive/5' : ''}`}
       >
         <div className="grid grid-cols-[1fr_auto] gap-2 items-start">
@@ -275,23 +276,24 @@ export default function Custos() {
               />
             </div>
 
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 text-muted-foreground hover:text-destructive rounded-lg flex-shrink-0"
-                  disabled={!isRegistered || isBlocked}
-                  onClick={() => {
-                    zeroCustoFixo(custo.id);
-                    toast.info(`${custo.nome} zerado`);
-                  }}
-                >
-                  <Trash2 className="w-4 h-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Zerar valor</TooltipContent>
-            </Tooltip>
+            <ConfirmAction
+              title={`Zerar "${custo.nome}"?`}
+              description="O valor deste custo será zerado (R$ 0,00). O item não será excluído."
+              confirmLabel="Zerar valor"
+              onConfirm={() => {
+                zeroCustoFixo(custo.id);
+                toast.info(`${custo.nome} zerado`);
+              }}
+            >
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-muted-foreground hover:text-destructive rounded-lg flex-shrink-0"
+                disabled={!isRegistered || isBlocked}
+              >
+                <Trash2 className="w-4 h-4" />
+              </Button>
+            </ConfirmAction>
           </div>
         </div>
 
@@ -335,9 +337,9 @@ export default function Custos() {
     return (
       <motion.div
         key={custo.id}
-        initial={{ opacity: 0, height: 0 }}
+        initial={false}
         animate={{ opacity: 1, height: 'auto' }}
-        exit={{ opacity: 0, height: 0 }}
+        exit={{ opacity: 0, height: 0, transition: { duration: 0.2 } }}
         className={`px-4 py-3 ${index < total - 1 ? 'border-b border-border/50' : ''}`}
       >
         <div className="grid grid-cols-[1fr_auto] gap-2 items-start">
@@ -402,23 +404,24 @@ export default function Custos() {
               />
             </div>
 
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 text-muted-foreground hover:text-destructive rounded-lg flex-shrink-0"
-                  disabled={!isRegistered}
-                  onClick={() => {
-                    zeroCustoVariavel(custo.id);
-                    toast.info(`${custo.nome} zerado`);
-                  }}
-                >
-                  <Trash2 className="w-4 h-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Zerar valor</TooltipContent>
-            </Tooltip>
+            <ConfirmAction
+              title={`Zerar "${custo.nome}"?`}
+              description="O valor deste custo será zerado (R$ 0,00). O item não será excluído."
+              confirmLabel="Zerar valor"
+              onConfirm={() => {
+                zeroCustoVariavel(custo.id);
+                toast.info(`${custo.nome} zerado`);
+              }}
+            >
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-muted-foreground hover:text-destructive rounded-lg flex-shrink-0"
+                disabled={!isRegistered}
+              >
+                <Trash2 className="w-4 h-4" />
+              </Button>
+            </ConfirmAction>
           </div>
         </div>
 
@@ -524,13 +527,25 @@ export default function Custos() {
           icon={DollarSign}
           variant="warning"
         />
-        <StatCard
-          title="Custo Total Mensal"
-          value={formatarMoeda(totalMensal)}
-          subtitle="Oper. + Depr. + Var."
-          icon={DollarSign}
-          variant="danger"
-        />
+        <div className="relative">
+          <StatCard
+            title="Custo Total Mensal"
+            value={formatarMoeda(totalMensal)}
+            subtitle="Oper. + Depr. + Var."
+            icon={DollarSign}
+            variant="danger"
+          />
+          <div className="absolute top-3 right-3">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Info className="w-3.5 h-3.5 text-muted-foreground/60 cursor-help" />
+              </TooltipTrigger>
+              <TooltipContent side="top" className="max-w-[300px] text-xs">
+                Soma de todos os custos operacionais, depreciação e variáveis necessários para manter sua clínica funcionando
+              </TooltipContent>
+            </Tooltip>
+          </div>
+        </div>
       </div>
 
       {/* Depreciação warning */}

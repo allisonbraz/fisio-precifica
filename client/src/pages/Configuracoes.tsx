@@ -14,7 +14,9 @@ import {
   RotateCcw,
   AlertTriangle,
   Info,
+  Users,
 } from 'lucide-react';
+import { Link } from 'wouter';
 import { Button } from '@/components/ui/button';
 import {
   AlertDialog,
@@ -201,6 +203,28 @@ export default function Configuracoes() {
             <li>Exportação e importação de dados</li>
           </ul>
         </div>
+      </motion.div>
+      {/* Leads Access */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2 }}
+        className="bg-card rounded-2xl border border-border p-6"
+      >
+        <div className="flex items-center gap-3 mb-3">
+          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+            <Users className="w-5 h-5 text-primary" />
+          </div>
+          <div>
+            <h3 className="font-heading font-semibold text-foreground">Contatos Cadastrados</h3>
+            <p className="text-sm text-muted-foreground">Visualize os leads que se cadastraram no app</p>
+          </div>
+        </div>
+        <Link href="/admin/leads">
+          <Button variant="outline" className="rounded-xl gap-1.5">
+            <Users className="w-4 h-4" /> Ver contatos
+          </Button>
+        </Link>
       </motion.div>
     </div>
   );

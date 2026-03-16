@@ -2,7 +2,7 @@ import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, protectedProcedure, adminProcedure, router } from "./_core/trpc";
-import { createLead, getLeads, getLeadsCount, getLeadsForExport, getUnifiedContacts, getUnifiedContactsForExport } from "./db";
+import { createLead, getLeads, getLeadsCount, getLeadsForExport, getUnifiedContacts, getUnifiedContactsForExport, savePricingData, loadPricingData } from "./db";
 import { z } from "zod";
 
 export const appRouter = router({
@@ -59,6 +59,29 @@ export const appRouter = router({
       const items = await getLeadsForExport();
       return { items };
     }),
+  }),
+
+  pricing: router({
+    /** Save pricing data — keyed by email */
+    save: publicProcedure
+      .input(z.object({
+        email: z.string().email(),
+        data: z.record(z.unknown()),
+      }))
+      .mutation(async ({ input }) => {
+        const saved = await savePricingData(input.email, input.data);
+        return { success: saved };
+      }),
+
+    /** Load pricing data by email */
+    load: publicProcedure
+      .input(z.object({
+        email: z.string().email(),
+      }))
+      .query(async ({ input }) => {
+        const data = await loadPricingData(input.email);
+        return { data };
+      }),
   }),
 
   contacts: router({

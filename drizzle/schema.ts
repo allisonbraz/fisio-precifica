@@ -1,4 +1,4 @@
-import { int, mysqlEnum, mysqlTable, text, timestamp, varchar } from "drizzle-orm/mysql-core";
+import { index, int, json, mysqlEnum, mysqlTable, text, timestamp, uniqueIndex, varchar } from "drizzle-orm/mysql-core";
 
 /**
  * Core user table backing auth flow.
@@ -39,9 +39,28 @@ export const leads = mysqlTable("leads", {
   userAgent: text("userAgent"),
   source: varchar("source", { length: 100 }).default("banner"),
   /** Link to users table if this lead also has an OAuth account */
-  userId: int("userId"),
+  userId: int("userId").references(() => users.id),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
-});
+}, (table) => [
+  uniqueIndex("idx_leads_email").on(table.email),
+  index("idx_leads_created_at").on(table.createdAt),
+]);
 
 export type Lead = typeof leads.$inferSelect;
 export type InsertLead = typeof leads.$inferInsert;
+
+/**
+ * Pricing data — stores the full DadosPrecificacao JSON per owner.
+ * Uses JSON column to accommodate the evolving data model without schema migrations.
+ * Keyed by ownerEmail (lead or user email) for cross-device sync.
+ */
+export const pricingData = mysqlTable("pricing_data", {
+  id: int("id").autoincrement().primaryKey(),
+  ownerEmail: varchar("ownerEmail", { length: 320 }).notNull().unique(),
+  data: json("data").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type PricingData = typeof pricingData.$inferSelect;
+export type InsertPricingData = typeof pricingData.$inferInsert;

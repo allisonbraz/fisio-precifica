@@ -1,0 +1,49 @@
+# AIOX Environment Bootstrap Report
+# Generated: 2026-03-15
+# Mode: YOLO
+# Agent: @devops (Gage) via @aiox-master (Orion)
+
+project:
+  name: fisio-precifica
+  path: C:\Users\User\Documents\Claude\code11\fisio-precifica
+  github_org: allisonbraz
+  repo_url: https://github.com/allisonbraz/fisio-precifica
+  visibility: PUBLIC
+
+environment:
+  os: Windows 11 Pro (MINGW64_NT-10.0-22631)
+  shell: bash (Git Bash / MINGW64)
+
+cli_tools:
+  node:
+    version: v24.13.0
+    status: OK
+  npm:
+    version: 11.8.0
+    status: OK
+  git:
+    version: 2.53.0.windows.2
+    status: OK
+  github_cli:
+    version: 2.86.0
+    status: OK
+    authenticated: true
+    account: allisonbraz
+    protocol: https
+
+git:
+  initialized: true
+  remote: origin -> https://github.com/allisonbraz/fisio-precifica.git
+  default_branch: main
+  current_branch: main
+  gitignore: configured
+  last_commit: "6b32135 Checkpoint: Unificação de leads + OAuth em Central de Contatos"
+
+package_manager: npm (package-lock.json detected)
+
+status: READY
+notes:
+  - Environment fully configured — all essential CLIs present and authenticated
+  - 85 uncommitted files detected (7 UX improvements pending commit)
+  - Repository is PUBLIC on GitHub
+  - Recommendation: commit pending changes, then proceed with development workflow

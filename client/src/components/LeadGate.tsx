@@ -6,7 +6,7 @@
  * Sends lead data to the server for mailing list capture
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Calculator, User, Phone, Mail, ArrowRight, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -27,6 +27,14 @@ export default function LeadGate() {
 
   const registerMutation = trpc.leads.register.useMutation();
 
+  // Lock body scroll when modal is open
+  useEffect(() => {
+    if (showModal) {
+      document.body.style.overflow = 'hidden';
+      return () => { document.body.style.overflow = ''; };
+    }
+  }, [showModal]);
+
   if (isRegistered) return null;
 
   const formatWhatsapp = (value: string) => {
@@ -41,7 +49,7 @@ export default function LeadGate() {
     const errs: Record<string, string> = {};
     if (!nome.trim()) errs.nome = 'Informe seu nome';
     if (whatsapp.replace(/\D/g, '').length < 10) errs.whatsapp = 'WhatsApp inválido';
-    if (!email.includes('@') || !email.includes('.')) errs.email = 'E-mail inválido';
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errs.email = 'E-mail inválido';
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -116,6 +124,9 @@ export default function LeadGate() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Cadastro para acessar o FisioPrecifica"
             className="fixed inset-0 z-[70] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"
             onClick={() => setShowModal(false)}
           >
@@ -154,8 +165,10 @@ export default function LeadGate() {
                     placeholder="Seu nome"
                     className="rounded-xl"
                     disabled={submitting}
+                    aria-invalid={!!errors.nome}
+                    aria-describedby={errors.nome ? 'lead-nome-error' : undefined}
                   />
-                  {errors.nome && <p className="text-xs text-destructive">{errors.nome}</p>}
+                  {errors.nome && <p id="lead-nome-error" className="text-xs text-destructive" role="alert">{errors.nome}</p>}
                 </div>
 
                 <div className="space-y-1.5">
@@ -171,8 +184,10 @@ export default function LeadGate() {
                     className="rounded-xl"
                     maxLength={16}
                     disabled={submitting}
+                    aria-invalid={!!errors.whatsapp}
+                    aria-describedby={errors.whatsapp ? 'lead-whatsapp-error' : undefined}
                   />
-                  {errors.whatsapp && <p className="text-xs text-destructive">{errors.whatsapp}</p>}
+                  {errors.whatsapp && <p id="lead-whatsapp-error" className="text-xs text-destructive" role="alert">{errors.whatsapp}</p>}
                 </div>
 
                 <div className="space-y-1.5">
@@ -188,8 +203,10 @@ export default function LeadGate() {
                     placeholder="seu@email.com"
                     className="rounded-xl"
                     disabled={submitting}
+                    aria-invalid={!!errors.email}
+                    aria-describedby={errors.email ? 'lead-email-error' : undefined}
                   />
-                  {errors.email && <p className="text-xs text-destructive">{errors.email}</p>}
+                  {errors.email && <p id="lead-email-error" className="text-xs text-destructive" role="alert">{errors.email}</p>}
                 </div>
 
                 <Button

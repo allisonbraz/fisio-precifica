@@ -25,12 +25,16 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import PageHeader from '@/components/PageHeader';
+import ConfirmAction from '@/components/ConfirmAction';
 import CurrencyInput from '@/components/CurrencyInput';
 import { useData } from '@/contexts/DataContext';
 import {
   formatarMoeda,
   RegistroMensal,
   calcularCustoTotalMensal,
+  calcularTotalCustosOperacionais,
+  calcularTotalDepreciacao,
+  calcularTotalCustosVariaveis,
 } from '@/lib/store';
 import {
   LineChart,
@@ -42,6 +46,7 @@ import {
   ResponsiveContainer,
   Legend,
 } from 'recharts';
+import { CHART_TOOLTIP_STYLE } from '@/lib/utils';
 
 export default function Relatorios() {
   const { data, addRegistroMensal, updateRegistroMensal, removeRegistroMensal } = useData();
@@ -75,8 +80,8 @@ export default function Relatorios() {
       setMes(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`);
       setSessoes(0);
       setReceita(0);
-      setCustoFixo(custoAtual);
-      setCustoVar(0);
+      setCustoFixo(calcularTotalCustosOperacionais(data.custosFixos) + calcularTotalDepreciacao(data.custosFixos));
+      setCustoVar(calcularTotalCustosVariaveis(data.custosVariaveis));
       setObs('');
     }
     setDialogOpen(true);
@@ -160,7 +165,7 @@ export default function Relatorios() {
                 <YAxis tick={{ fontSize: 12 }} stroke="#8a7e74" tickFormatter={(v) => `R$${(v/1000).toFixed(0)}k`} />
                 <Tooltip
                   formatter={(value: number) => formatarMoeda(value)}
-                  contentStyle={{ borderRadius: '12px', border: '1px solid #e5e0d8', fontSize: '13px' }}
+                  contentStyle={CHART_TOOLTIP_STYLE}
                 />
                 <Legend />
                 <Line type="monotone" dataKey="receita" name="Receita" stroke="#7c9a82" strokeWidth={2} dot={{ fill: '#7c9a82' }} />
@@ -213,18 +218,72 @@ export default function Relatorios() {
           </Button>
         </motion.div>
       ) : (
-        <div className="bg-card rounded-2xl border border-border overflow-hidden">
+        <>
+        {/* Mobile card layout */}
+        <div className="space-y-3 sm:hidden">
+          {sortedRegistros.map((reg) => {
+            const custoTotal = reg.custoFixoTotal + reg.custoVariavelTotal;
+            const lucro = reg.receitaTotal - custoTotal;
+            const ticketMedio = reg.sessoesRealizadas > 0 ? reg.receitaTotal / reg.sessoesRealizadas : 0;
+            return (
+              <div key={reg.id} className="bg-card rounded-2xl border border-border p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="font-heading font-semibold text-foreground">{formatMes(reg.mes)}</span>
+                  <div className="flex gap-1">
+                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" onClick={() => openDialog(reg)}>
+                      <Edit3 className="w-4 h-4" />
+                    </Button>
+                    <ConfirmAction
+                      title={`Excluir registro de ${formatMes(reg.mes)}?`}
+                      description="Este registro mensal será removido permanentemente."
+                      confirmLabel="Excluir registro"
+                      onConfirm={() => removeRegistroMensal(reg.id)}
+                    >
+                      <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-muted-foreground hover:text-destructive">
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </ConfirmAction>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Sessões</p>
+                    <p className="font-mono font-medium">{reg.sessoesRealizadas}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Receita</p>
+                    <p className="font-mono font-medium text-sage-dark">{formatarMoeda(reg.receitaTotal)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Custos</p>
+                    <p className="font-mono font-medium">{formatarMoeda(custoTotal)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Lucro</p>
+                    <p className={`font-mono font-bold ${lucro >= 0 ? 'text-sage-dark' : 'text-destructive'}`}>{formatarMoeda(lucro)}</p>
+                  </div>
+                </div>
+                <div className="text-xs text-muted-foreground pt-1 border-t border-border/50">
+                  Ticket médio: <span className="font-mono font-medium text-foreground">{formatarMoeda(ticketMedio)}</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Desktop table */}
+        <div className="bg-card rounded-2xl border border-border overflow-hidden hidden sm:block">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-muted/30 text-xs text-muted-foreground uppercase tracking-wider">
-                  <th className="text-left px-4 py-3 font-medium">Mês</th>
-                  <th className="text-right px-4 py-3 font-medium">Sessões</th>
-                  <th className="text-right px-4 py-3 font-medium">Receita</th>
-                  <th className="text-right px-4 py-3 font-medium">Custos</th>
-                  <th className="text-right px-4 py-3 font-medium">Lucro</th>
-                  <th className="text-right px-4 py-3 font-medium">Ticket Médio</th>
-                  <th className="text-center px-4 py-3 font-medium">Ações</th>
+                  <th scope="col" className="text-left px-4 py-3 font-medium">Mês</th>
+                  <th scope="col" className="text-right px-4 py-3 font-medium">Sessões</th>
+                  <th scope="col" className="text-right px-4 py-3 font-medium">Receita</th>
+                  <th scope="col" className="text-right px-4 py-3 font-medium">Custos</th>
+                  <th scope="col" className="text-right px-4 py-3 font-medium">Lucro</th>
+                  <th scope="col" className="text-right px-4 py-3 font-medium">Ticket Médio</th>
+                  <th scope="col" className="text-center px-4 py-3 font-medium">Ações</th>
                 </tr>
               </thead>
               <tbody>
@@ -247,9 +306,16 @@ export default function Relatorios() {
                           <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg" onClick={() => openDialog(reg)}>
                             <Edit3 className="w-3.5 h-3.5" />
                           </Button>
-                          <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg text-muted-foreground hover:text-destructive" onClick={() => removeRegistroMensal(reg.id)}>
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </Button>
+                          <ConfirmAction
+                            title={`Excluir registro de ${formatMes(reg.mes)}?`}
+                            description="Este registro mensal será removido permanentemente."
+                            confirmLabel="Excluir registro"
+                            onConfirm={() => removeRegistroMensal(reg.id)}
+                          >
+                            <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg text-muted-foreground hover:text-destructive">
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          </ConfirmAction>
                         </div>
                       </td>
                     </tr>
@@ -259,6 +325,7 @@ export default function Relatorios() {
             </table>
           </div>
         </div>
+        </>
       )}
 
       {/* Dialog */}
@@ -292,6 +359,11 @@ export default function Relatorios() {
                 <CurrencyInput value={custoVar} onChange={setCustoVar} />
               </div>
             </div>
+            {!editing && (
+              <p className="text-xs text-muted-foreground bg-muted/30 rounded-lg px-3 py-2">
+                Valores pré-preenchidos com seus custos atuais. Ajuste se necessário.
+              </p>
+            )}
             <div>
               <label className="text-sm font-medium mb-1.5 block">Observações</label>
               <Input value={obs} onChange={(e) => setObs(e.target.value)} placeholder="Notas sobre o mês" className="rounded-xl" />

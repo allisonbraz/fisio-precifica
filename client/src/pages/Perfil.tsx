@@ -5,7 +5,7 @@
  * Data used for personalized reports and PDF download
  */
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
   UserCircle,
@@ -45,6 +45,13 @@ export default function Perfil() {
   const { data, perfil, updatePerfil, isRegistered, lead } = useData();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [generating, setGenerating] = useState(false);
+
+  // Auto-scroll to PDF section if hash is #relatorio
+  useEffect(() => {
+    if (window.location.hash === '#relatorio') {
+      setTimeout(() => document.getElementById('relatorio')?.scrollIntoView({ behavior: 'smooth' }), 200);
+    }
+  }, []);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -464,7 +471,7 @@ export default function Perfil() {
             <p className="text-xs text-muted-foreground mt-2 leading-relaxed">{perfil.especialidades}</p>
           )}
 
-          <div className="mt-6 w-full pt-4 border-t border-border">
+          <div id="relatorio" className="mt-6 w-full pt-4 border-t border-border">
             <Button
               variant="outline"
               className="w-full rounded-xl gap-1.5"
