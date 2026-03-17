@@ -1,11 +1,12 @@
 /**
  * Vercel Serverless Function — Express adapter for tRPC
+ * Built with esbuild into api/trpc.js
  */
 import 'dotenv/config';
 import express from 'express';
 import { createExpressMiddleware } from '@trpc/server/adapters/express';
-import { appRouter } from '../server/routers.js';
-import { createContext } from '../server/_core/context.js';
+import { appRouter } from './routers';
+import { createContext } from './_core/context';
 
 const app = express();
 
