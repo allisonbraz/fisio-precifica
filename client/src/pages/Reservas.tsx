@@ -47,10 +47,9 @@ import ConfirmAction from '@/components/ConfirmAction';
 import CurrencyInput from '@/components/CurrencyInput';
 import StatCard from '@/components/StatCard';
 import { useData } from '@/contexts/DataContext';
+import { useMetrics } from '@/lib/useMetrics';
 import {
   calcularTotalReservas,
-  calcularPrecoMinimo,
-  calcularCustoTotalMensal,
   formatarMoeda,
   formatarPercentual,
   ReservaEstrategica,
@@ -71,18 +70,18 @@ export default function Reservas() {
   const [novoNome, setNovoNome] = useState('');
   const [novoDesc, setNovoDesc] = useState('');
 
-  const totalReservas = calcularTotalReservas(data.reservasEstrategicas);
-  const custoTotal = calcularCustoTotalMensal(data);
-  const precoPorSessao = calcularPrecoMinimo(data);
-  const receitaPotencial = precoPorSessao * data.sessoesMeta;
-  const percentualReservas = receitaPotencial > 0 ? (totalReservas / receitaPotencial) * 100 : 0;
+  const m = useMetrics(data);
+  const totalReservas = m.totalReservas;
+  const custoOperacional = m.custoOperacionalMensal;
+  const receitaBruta = m.receitaBruta;
+  const percentualReservas = receitaBruta > 0 ? (totalReservas / receitaBruta) * 100 : 0;
 
   // Smart alerts
   const alerts = useMemo(() => {
     const list: { type: 'warning' | 'danger' | 'success'; message: string }[] = [];
 
     // Check if reservas > lucro operacional
-    const lucroOp = receitaPotencial - custoTotal;
+    const lucroOp = receitaBruta - custoOperacional;
     if (totalReservas > lucroOp && lucroOp > 0) {
       list.push({
         type: 'danger',
@@ -115,7 +114,7 @@ export default function Reservas() {
     }
 
     return list;
-  }, [totalReservas, receitaPotencial, custoTotal, percentualReservas]);
+  }, [totalReservas, receitaBruta, custoOperacional, percentualReservas]);
 
   const handleAdd = () => {
     if (!novoNome.trim()) return;
@@ -168,7 +167,7 @@ export default function Reservas() {
       >
         <Info className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
         <p className="text-sm text-foreground/80">
-          Reservas são valores que você escolhe guardar do seu lucro para necessidades futuras, emergências e crescimento. Diferente dos custos (que são obrigatórios), reservas são decisões estratégicas.
+          Reservas são valores que você separa para necessidades futuras, emergências e crescimento. Elas são <strong>incluídas na base de custo</strong> para formação do preço, garantindo que seu preço já cubra essas reservas.
         </p>
       </motion.div>
 
@@ -182,8 +181,9 @@ export default function Reservas() {
         <div className="text-sm text-foreground/80 space-y-2">
           <p className="font-medium text-sage-dark">Princípio: Se é guardado por decisão → é RESERVA</p>
           <p>
-            Reservas não são custos operacionais. São valores que você <strong>decide</strong> separar para proteger e fazer crescer seu negócio.
-            Elas saem do <strong>lucro operacional</strong>, não do custo.
+            Reservas são valores que você <strong>decide</strong> separar para proteger e fazer crescer seu negócio.
+            Elas entram na <strong>base de custo para precificação</strong>, ou seja, seu preço é calculado para já cobrir essas reservas.
+            No DRE, aparecem entre o Lucro Operacional e o Lucro Disponível.
           </p>
           <p className="text-xs text-muted-foreground">
             Recomendação: reserve entre 5% e 20% da receita bruta para manter saúde financeira a longo prazo.
@@ -203,16 +203,16 @@ export default function Reservas() {
         <StatCard
           title="% da Receita"
           value={formatarPercentual(percentualReservas)}
-          subtitle={`Sobre receita de ${formatarMoeda(receitaPotencial)}`}
+          subtitle={`Sobre receita de ${formatarMoeda(receitaBruta)}`}
           icon={TrendingUp}
           variant={percentualReservas > 40 ? 'danger' : percentualReservas > 0 ? 'success' : 'warning'}
         />
         <StatCard
           title="Lucro Disponível"
-          value={formatarMoeda(Math.max(0, receitaPotencial - custoTotal - totalReservas))}
-          subtitle="Receita − Custos − Reservas"
+          value={formatarMoeda(m.lucroDisponivel)}
+          subtitle="Receita − Impostos − Custos − Reservas"
           icon={Wallet}
-          variant="success"
+          variant={m.lucroDisponivel >= 0 ? 'success' : 'danger'}
         />
       </div>
 
@@ -250,7 +250,7 @@ export default function Reservas() {
       <div className="space-y-3">
         <div className="flex justify-between items-center">
           <p className="text-sm text-muted-foreground">
-            Valores separados estrategicamente do lucro operacional
+            Valores incluídos na base de custo para formação do preço
           </p>
           <Button
             size="sm"
@@ -297,23 +297,72 @@ export default function Reservas() {
                         </Tooltip>
                       )}
                     </div>
-                    {reserva.valor > 0 && receitaPotencial > 0 && (
+                    {reserva.modo === 'percentual' && reserva.percentual ? (
                       <span className="text-xs text-sage-dark font-medium">
-                        = {((reserva.valor / receitaPotencial) * 100).toFixed(1)}% da receita
+                        = {formatarMoeda(receitaBruta * reserva.percentual)}/mês ({(reserva.percentual * 100).toFixed(1)}% da receita)
                       </span>
-                    )}
+                    ) : reserva.valor > 0 && receitaBruta > 0 ? (
+                      <span className="text-xs text-sage-dark font-medium">
+                        = {((reserva.valor / receitaBruta) * 100).toFixed(1)}% da receita
+                      </span>
+                    ) : null}
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <div className="w-[140px] sm:w-[160px]">
-                      <CurrencyInput
-                        value={reserva.valor}
-                        onChange={(v) => {
-                          if (!isRegistered) { toast.error('Faça login para editar'); return; }
-                          updateReserva(reserva.id, { valor: v });
-                        }}
+                    {/* Mode toggle: fixo / percentual */}
+                    <div className="hidden sm:flex">
+                      <button
                         disabled={!isRegistered}
-                      />
+                        onClick={() => updateReserva(reserva.id, { modo: 'fixo' })}
+                        className={`px-2 py-1 text-[10px] font-medium rounded-l-lg border transition-colors ${
+                          reserva.modo !== 'percentual'
+                            ? 'bg-primary/10 text-primary border-primary/30'
+                            : 'bg-muted/30 text-muted-foreground border-border hover:bg-muted/50'
+                        }`}
+                      >
+                        R$
+                      </button>
+                      <button
+                        disabled={!isRegistered}
+                        onClick={() => updateReserva(reserva.id, { modo: 'percentual', percentual: reserva.percentual || 0.05 })}
+                        className={`px-2 py-1 text-[10px] font-medium rounded-r-lg border-t border-b border-r transition-colors ${
+                          reserva.modo === 'percentual'
+                            ? 'bg-sage/10 text-sage-dark border-sage/30'
+                            : 'bg-muted/30 text-muted-foreground border-border hover:bg-muted/50'
+                        }`}
+                      >
+                        %
+                      </button>
+                    </div>
+
+                    <div className="w-[140px] sm:w-[160px]">
+                      {reserva.modo === 'percentual' ? (
+                        <div className="relative">
+                          <Input
+                            type="number"
+                            min={0}
+                            max={50}
+                            step={0.5}
+                            value={((reserva.percentual || 0) * 100).toFixed(1)}
+                            onChange={(e) => {
+                              if (!isRegistered) { toast.error('Faça login para editar'); return; }
+                              updateReserva(reserva.id, { percentual: parseFloat(e.target.value) / 100 || 0 });
+                            }}
+                            disabled={!isRegistered}
+                            className="rounded-xl pr-8 font-mono text-sm h-9"
+                          />
+                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">%</span>
+                        </div>
+                      ) : (
+                        <CurrencyInput
+                          value={reserva.valor}
+                          onChange={(v) => {
+                            if (!isRegistered) { toast.error('Faça login para editar'); return; }
+                            updateReserva(reserva.id, { valor: v });
+                          }}
+                          disabled={!isRegistered}
+                        />
+                      )}
                     </div>
                     <ConfirmAction
                       title={`Zerar "${reserva.nome}"?`}
@@ -359,17 +408,21 @@ export default function Reservas() {
         </h3>
         <div className="space-y-2">
           <div className="flex justify-between items-center py-2 border-b border-border/50">
-            <span className="text-sm text-muted-foreground">Receita Potencial</span>
-            <span className="font-mono font-medium text-foreground">{formatarMoeda(receitaPotencial)}</span>
+            <span className="text-sm text-muted-foreground">Receita Bruta Estimada</span>
+            <span className="font-mono font-medium text-foreground">{formatarMoeda(receitaBruta)}</span>
           </div>
           <div className="flex justify-between items-center py-2 border-b border-border/50">
-            <span className="text-sm text-muted-foreground">− Custos Totais</span>
-            <span className="font-mono font-medium text-destructive">−{formatarMoeda(custoTotal)}</span>
+            <span className="text-sm text-muted-foreground">− Impostos ({(data.impostoPercentual * 100).toFixed(0)}%)</span>
+            <span className="font-mono font-medium text-amber-600">−{formatarMoeda(m.impostosMensal)}</span>
+          </div>
+          <div className="flex justify-between items-center py-2 border-b border-border/50">
+            <span className="text-sm text-muted-foreground">− Custos Operacionais</span>
+            <span className="font-mono font-medium text-destructive">−{formatarMoeda(custoOperacional)}</span>
           </div>
           <div className="flex justify-between items-center py-2 border-b border-border/50 bg-primary/5 -mx-5 px-5">
             <span className="text-sm font-semibold text-foreground">= Lucro Operacional</span>
-            <span className={`font-mono font-bold ${receitaPotencial - custoTotal >= 0 ? 'text-sage-dark' : 'text-destructive'}`}>
-              {formatarMoeda(receitaPotencial - custoTotal)}
+            <span className={`font-mono font-bold ${m.lucroOperacional >= 0 ? 'text-sage-dark' : 'text-destructive'}`}>
+              {formatarMoeda(m.lucroOperacional)}
             </span>
           </div>
           <div className="flex justify-between items-center py-2 border-b border-border/50">
@@ -379,10 +432,10 @@ export default function Reservas() {
           <div className="flex justify-between items-center py-2 bg-sage/5 -mx-5 px-5 rounded-b-xl">
             <div>
               <span className="text-sm font-bold text-foreground block">= Lucro Disponível</span>
-              <span className="text-[10px] text-muted-foreground">O que sobra para: Reinvestir · Criar reserva · Crescer · Dividendos</span>
+              <span className="text-[10px] text-muted-foreground">O que sobra para: Reinvestir · Crescer · Dividendos</span>
             </div>
-            <span className={`font-mono font-bold text-lg ${receitaPotencial - custoTotal - totalReservas >= 0 ? 'text-sage-dark' : 'text-destructive'}`}>
-              {formatarMoeda(Math.max(0, receitaPotencial - custoTotal - totalReservas))}
+            <span className={`font-mono font-bold text-lg ${m.lucroDisponivel >= 0 ? 'text-sage-dark' : 'text-destructive'}`}>
+              {formatarMoeda(m.lucroDisponivel)}
             </span>
           </div>
         </div>

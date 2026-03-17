@@ -28,19 +28,8 @@ import {
 import PageHeader from '@/components/PageHeader';
 import StatCard from '@/components/StatCard';
 import { useData } from '@/contexts/DataContext';
-import {
-  calcularTotalCustosOperacionais,
-  calcularTotalDepreciacao,
-  calcularTotalCustosVariaveis,
-  calcularTotalReservas,
-  calcularCustoTotalMensal,
-  calcularPrecoMinimo,
-  calcularTaxaOcupacao,
-  calcularPontoEquilibrio,
-  calcularValorHora,
-  formatarMoeda,
-  getValorMensal,
-} from '@/lib/store';
+import { useMetrics } from '@/lib/useMetrics';
+import { formatarMoeda, getValorMensal } from '@/lib/store';
 import {
   RadarChart,
   PolarGrid,
@@ -82,51 +71,46 @@ const SCORE_DESCRIPTIONS: Record<string, { good: string; bad: string; tip: strin
 export default function Indicadores() {
   const { data } = useData();
 
+  const m = useMetrics(data);
+
   const metrics = useMemo(() => {
-    const custoOperacional = calcularTotalCustosOperacionais(data.custosFixos);
-    const custoDepreciacao = calcularTotalDepreciacao(data.custosFixos);
-    const custoVarTotal = calcularTotalCustosVariaveis(data.custosVariaveis);
-    const totalReservas = calcularTotalReservas(data.reservasEstrategicas);
-    const custoFixoTotal = custoOperacional + custoDepreciacao;
-    const custoMensal = calcularCustoTotalMensal(data);
-    const precoPorSessao = calcularPrecoMinimo(data);
-    const taxaOcupacao = calcularTaxaOcupacao(data);
-    const pontoEquilibrio = calcularPontoEquilibrio(data, precoPorSessao);
-    const valorHora = calcularValorHora(data, precoPorSessao);
-    const receitaPotencial = precoPorSessao * data.sessoesMeta;
-    const lucroOperacional = receitaPotencial - custoMensal;
-    const lucroDisponivel = lucroOperacional - totalReservas;
-    const margemLiquida = receitaPotencial > 0 ? (lucroOperacional / receitaPotencial) * 100 : 0;
+    const custoFixoTotal = m.custoFixoTotal;
+    const custoMensal = m.custoTotalMensal;
+    const margemLiquida = m.receitaBruta > 0
+      ? ((m.receitaBruta - m.impostosMensal - m.custoOperacionalMensal) / m.receitaBruta) * 100
+      : 0;
     const custoFixoPerc = custoMensal > 0 ? (custoFixoTotal / custoMensal) * 100 : 0;
-    const custoVarPerc = custoMensal > 0 ? (custoVarTotal / custoMensal) * 100 : 0;
-    const capacidadeMaxima = data.diasUteis * data.sessoesporDia;
+    const custoVarPerc = custoMensal > 0 ? (m.custoVarTotal / custoMensal) * 100 : 0;
     const horasMensais = data.diasUteis * data.horasTrabalho;
-    const faturamentoPorHora = horasMensais > 0 ? receitaPotencial / horasMensais : 0;
-    const custoFixoPorSessao = data.sessoesMeta > 0 ? custoFixoTotal / data.sessoesMeta : 0;
-    const custoVarPorSessao = data.sessoesMeta > 0 ? custoVarTotal / data.sessoesMeta : 0;
+    const faturamentoPorHora = horasMensais > 0 ? m.receitaBruta / horasMensais : 0;
 
     const custoMarketing = data.custosFixos
       .filter(c => c.nome.toLowerCase().includes('marketing'))
       .reduce((sum, c) => sum + getValorMensal(c), 0);
-    const roiMarketing = custoMarketing > 0 ? ((receitaPotencial - custoMensal) / custoMarketing) * 100 : 0;
+    const roiMarketing = custoMarketing > 0 ? (m.lucroOperacional / custoMarketing) * 100 : 0;
 
-    // Score de saúde financeira (0-100)
+    // Score de saúde financeira (0-100) — pesos ajustados
     const scores = {
-      margem: Math.min(margemLiquida / 40 * 100, 100),
-      ocupacao: Math.min(taxaOcupacao / 80 * 100, 100),
-      equilibrio: pontoEquilibrio !== Infinity ? Math.min((1 - pontoEquilibrio / capacidadeMaxima) * 100, 100) : 0,
+      margem: Math.min(margemLiquida / 30 * 100, 100),    // 30% = score 100
+      ocupacao: Math.min(m.taxaOcupacao / 75 * 100, 100), // 75% = score 100
+      equilibrio: m.pontoEquilibrio !== Infinity ? Math.min((1 - m.pontoEquilibrio / m.capacidadeMaxima) * 100, 100) : 0,
       diversificacao: Math.min(data.tiposServico.length / 5 * 100, 100),
       planos: Math.min(data.planosTratamento.length / 3 * 100, 100),
     };
     const saudeFinanceira = Object.values(scores).reduce((a, b) => a + b, 0) / Object.keys(scores).length;
 
     return {
-      custoFixoTotal, custoVarTotal, custoMensal, precoPorSessao, taxaOcupacao,
-      pontoEquilibrio, valorHora, receitaPotencial, lucroOperacional, lucroDisponivel, totalReservas, margemLiquida,
-      custoFixoPerc, custoVarPerc, capacidadeMaxima, horasMensais, faturamentoPorHora,
-      custoFixoPorSessao, custoVarPorSessao, roiMarketing, scores, saudeFinanceira,
+      custoFixoTotal, custoVarTotal: m.custoVarTotal, custoMensal,
+      precoPorSessao: m.precoPorSessao, taxaOcupacao: m.taxaOcupacao,
+      pontoEquilibrio: m.pontoEquilibrio, valorHora: m.valorHora,
+      receitaBruta: m.receitaBruta, lucroOperacional: m.lucroOperacional,
+      lucroDisponivel: m.lucroDisponivel, totalReservas: m.totalReservas,
+      margemLiquida, custoFixoPerc, custoVarPerc,
+      capacidadeMaxima: m.capacidadeMaxima, horasMensais, faturamentoPorHora,
+      custoFixoPorSessao: m.custoFixoSessao, custoVarPorSessao: m.custoVarSessao,
+      roiMarketing, scores, saudeFinanceira,
     };
-  }, [data]);
+  }, [m, data]);
 
   const scoreItems = useMemo(() => [
     { label: 'Margem de Lucro', value: metrics.scores.margem },

@@ -27,8 +27,9 @@ import {
   simularPreco,
   calcularPrecoMinimo,
   calcularPontoEquilibrio,
-  calcularCustoTotalMensal,
   calcularCustoTotalPorSessao,
+  calcularCustoOperacionalMensal,
+  calcularTotalReservas,
   formatarMoeda,
 } from '@/lib/store';
 import {
@@ -50,9 +51,11 @@ export default function Simulacao() {
   const { data } = useData();
   const [precoCustom, setPrecoCustom] = useState(150);
 
-  const precoPorSessao = calcularPrecoMinimo(data); // preço = custo + margem
+  const precoPorSessao = calcularPrecoMinimo(data);
   const custoSessao = calcularCustoTotalPorSessao(data);
-  const custoMensal = calcularCustoTotalMensal(data);
+  const custoOperacionalMensal = calcularCustoOperacionalMensal(data);
+  const reservasMensal = calcularTotalReservas(data.reservasEstrategicas);
+  const custoMensal = custoOperacionalMensal + reservasMensal;
 
   // Predefined simulation prices
   const precosSimulacao = useMemo(() => {
@@ -78,7 +81,7 @@ export default function Simulacao() {
         preco: p,
         receita: Math.round(sim.receitaMensal),
         custo: Math.round(sim.custoTotal),
-        lucro: Math.round(sim.lucroOperacional),
+        lucro: Math.round(sim.lucroDisponivel),
       });
     }
     return points;
@@ -124,30 +127,19 @@ export default function Simulacao() {
   // ===== OCCUPANCY SCENARIOS =====
   const cenariosOcupacao = useMemo(() => {
     const sessoesPlena = data.sessoesMeta;
-    const sessoes70_80 = Math.floor(data.sessoesMeta * 0.75); // midpoint of 70-80%
-    const sessoesFaltas = Math.floor(data.sessoesMeta * 0.90); // 10% faltas
+    const sessoes70_80 = Math.floor(data.sessoesMeta * 0.75);
+    const sessoesFaltas = Math.floor(data.sessoesMeta * 0.90);
 
-    const simPlena = {
-      receita: precoCustom * sessoesPlena,
-      custo: custoMensal,
-      lucro: precoCustom * sessoesPlena - custoMensal,
-      sessoes: sessoesPlena,
-      ocupacao: 100,
+    const buildCenario = (sessoes: number) => {
+      const receita = precoCustom * sessoes;
+      const impostos = receita * data.impostoPercentual;
+      const lucro = receita - impostos - custoMensal;
+      return { receita, impostos, custo: custoMensal, lucro, sessoes };
     };
-    const sim75 = {
-      receita: precoCustom * sessoes70_80,
-      custo: custoMensal,
-      lucro: precoCustom * sessoes70_80 - custoMensal,
-      sessoes: sessoes70_80,
-      ocupacao: 75,
-    };
-    const simFaltas = {
-      receita: precoCustom * sessoesFaltas,
-      custo: custoMensal,
-      lucro: precoCustom * sessoesFaltas - custoMensal,
-      sessoes: sessoesFaltas,
-      ocupacao: 90,
-    };
+
+    const simPlena = { ...buildCenario(sessoesPlena), ocupacao: 100 };
+    const simFaltas = { ...buildCenario(sessoesFaltas), ocupacao: 90 };
+    const sim75 = { ...buildCenario(sessoes70_80), ocupacao: 75 };
 
     return [
       {
@@ -247,15 +239,26 @@ export default function Simulacao() {
           <div className="space-y-3">
             <div className="grid grid-cols-2 gap-3">
               <div className="bg-muted/30 rounded-xl p-3">
-                <p className="text-xs text-muted-foreground">Receita Mensal</p>
+                <p className="text-xs text-muted-foreground">Receita Bruta</p>
                 <p className="text-lg font-mono font-bold text-foreground">{formatarMoeda(customSim.receitaMensal)}</p>
+              </div>
+              <div className="bg-muted/30 rounded-xl p-3">
+                <p className="text-xs text-muted-foreground">Impostos</p>
+                <p className="text-lg font-mono font-bold text-amber-600">−{formatarMoeda(customSim.impostos)}</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">{(data.impostoPercentual * 100).toFixed(0)}% sobre receita</p>
               </div>
               <div className="bg-muted/30 rounded-xl p-3">
                 <p className="text-xs text-muted-foreground">Lucro Operacional</p>
                 <p className={`text-lg font-mono font-bold ${customSim.lucroOperacional >= 0 ? 'text-sage-dark' : 'text-destructive'}`}>
                   {formatarMoeda(customSim.lucroOperacional)}
                 </p>
-                <p className="text-[10px] text-muted-foreground mt-0.5">O que sobra para reinvestir, reserva e crescer</p>
+              </div>
+              <div className="bg-muted/30 rounded-xl p-3">
+                <p className="text-xs text-muted-foreground">Lucro Disponível</p>
+                <p className={`text-lg font-mono font-bold ${customSim.lucroDisponivel >= 0 ? 'text-sage-dark' : 'text-destructive'}`}>
+                  {formatarMoeda(customSim.lucroDisponivel)}
+                </p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">Após reservas</p>
               </div>
               <div className="bg-muted/30 rounded-xl p-3">
                 <p className="text-xs text-muted-foreground">Margem</p>
@@ -362,9 +365,13 @@ export default function Simulacao() {
                     <span className="font-mono font-medium">{formatarMoeda(cenario.data.receitaMensal)}</span>
                   </div>
                   <div className="flex justify-between text-xs">
-                    <span className="text-muted-foreground">Lucro:</span>
-                    <span className={`font-mono font-medium ${cenario.data.lucroOperacional >= 0 ? 'text-sage-dark' : 'text-destructive'}`}>
-                      {formatarMoeda(cenario.data.lucroOperacional)}
+                    <span className="text-muted-foreground">Impostos:</span>
+                    <span className="font-mono font-medium text-amber-600">−{formatarMoeda(cenario.data.impostos)}</span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted-foreground">Lucro Disponível:</span>
+                    <span className={`font-mono font-medium ${cenario.data.lucroDisponivel >= 0 ? 'text-sage-dark' : 'text-destructive'}`}>
+                      {formatarMoeda(cenario.data.lucroDisponivel)}
                     </span>
                   </div>
                   <div className="flex justify-between text-xs">
@@ -498,8 +505,8 @@ export default function Simulacao() {
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground">Lucro</p>
-                  <p className={`font-mono font-bold ${sim.lucroOperacional >= 0 ? 'text-sage-dark' : 'text-destructive'}`}>
-                    {formatarMoeda(sim.lucroOperacional)}
+                  <p className={`font-mono font-bold ${sim.lucroDisponivel >= 0 ? 'text-sage-dark' : 'text-destructive'}`}>
+                    {formatarMoeda(sim.lucroDisponivel)}
                   </p>
                 </div>
                 <div>
@@ -531,7 +538,7 @@ export default function Simulacao() {
                 <th scope="col" className="text-right px-4 py-3 font-medium">% vs Custo</th>
                 <th scope="col" className="text-right px-4 py-3 font-medium">Receita Mensal</th>
                 <th scope="col" className="text-right px-4 py-3 font-medium">Custo Total</th>
-                <th scope="col" className="text-right px-4 py-3 font-medium">Lucro Bruto</th>
+                <th scope="col" className="text-right px-4 py-3 font-medium">Lucro Disponível</th>
                 <th scope="col" className="text-right px-4 py-3 font-medium">Margem</th>
                 <th scope="col" className="text-center px-4 py-3 font-medium">Status</th>
               </tr>
@@ -550,8 +557,8 @@ export default function Simulacao() {
                   </td>
                   <td className="px-4 py-3 text-right font-mono">{formatarMoeda(sim.receitaMensal)}</td>
                   <td className="px-4 py-3 text-right font-mono">{formatarMoeda(sim.custoTotal)}</td>
-                  <td className={`px-4 py-3 text-right font-mono font-medium ${sim.lucroOperacional >= 0 ? 'text-sage-dark' : 'text-destructive'}`}>
-                    {formatarMoeda(sim.lucroOperacional)}
+                  <td className={`px-4 py-3 text-right font-mono font-medium ${sim.lucroDisponivel >= 0 ? 'text-sage-dark' : 'text-destructive'}`}>
+                    {formatarMoeda(sim.lucroDisponivel)}
                   </td>
                   <td className="px-4 py-3 text-right font-mono">{sim.margem.toFixed(1)}%</td>
                   <td className="px-4 py-3 text-center">

@@ -63,7 +63,7 @@ import {
   calcularTotalCustosOperacionais,
   calcularTotalDepreciacao,
   calcularTotalCustosVariaveis,
-  calcularCustoTotalMensal,
+  calcularCustoOperacionalMensal,
   formatarMoeda,
   getValorMensal,
   FrequenciaCusto,
@@ -98,7 +98,7 @@ export default function Custos() {
   const totalOperacionais = calcularTotalCustosOperacionais(data.custosFixos);
   const totalDepreciacao = calcularTotalDepreciacao(data.custosFixos);
   const totalVariaveis = calcularTotalCustosVariaveis(data.custosVariaveis);
-  const totalMensal = calcularCustoTotalMensal(data);
+  const totalMensal = calcularCustoOperacionalMensal(data);
 
   // Smart question: items that might be reservas
   const AMBIGUOUS_KEYWORDS = ['curso', 'capacitação', 'mentoria', 'equipamento', 'aquisição', 'expansão', 'reposição'];
@@ -529,9 +529,9 @@ export default function Custos() {
         />
         <div className="relative">
           <StatCard
-            title="Custo Total Mensal"
+            title="Custo Operacional Mensal"
             value={formatarMoeda(totalMensal)}
-            subtitle="Oper. + Depr. + Var."
+            subtitle="Oper. + Depr. + Var. (sem reservas)"
             icon={DollarSign}
             variant="danger"
           />
@@ -641,10 +641,14 @@ export default function Custos() {
           >
             <ShieldAlert className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
             <div className="text-sm text-foreground/80">
-              <p className="font-medium text-amber-700 dark:text-amber-400 mb-0.5">Regra de depreciação</p>
+              <p className="font-medium text-amber-700 dark:text-amber-400 mb-0.5">Depreciação vs Financiamento</p>
               <p className="text-xs">
-                Se o equipamento ainda está sendo financiado (parcela ativa), a depreciação é <strong>bloqueada automaticamente</strong>.
-                A parcela do financiamento já entra como custo operacional. Quando terminar de pagar, desative a parcela para liberar a depreciação.
+                <strong>Depreciação</strong> é a perda de valor de um equipamento ao longo do tempo (ex: maca comprada por R$ 3.000, vida útil de 5 anos = R$ 50/mês).
+                Se o equipamento ainda está sendo <strong>financiado</strong> (parcela ativa), a depreciação é bloqueada — a parcela já entra como custo operacional.
+                Quando terminar de pagar, desative a parcela para liberar a depreciação.
+              </p>
+              <p className="text-xs mt-1 text-muted-foreground">
+                Dica: calcule a depreciação dividindo o valor do equipamento pela vida útil em meses (geralmente 5-10 anos para equipamentos de fisioterapia).
               </p>
             </div>
           </motion.div>

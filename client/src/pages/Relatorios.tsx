@@ -15,6 +15,7 @@ import {
   TrendingUp,
   TrendingDown,
   Download,
+  AlertTriangle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -31,9 +32,8 @@ import { useData } from '@/contexts/DataContext';
 import {
   formatarMoeda,
   RegistroMensal,
-  calcularCustoTotalMensal,
-  calcularTotalCustosOperacionais,
-  calcularTotalDepreciacao,
+  calcularCustoOperacionalMensal,
+  calcularTotalCustosFixos,
   calcularTotalCustosVariaveis,
 } from '@/lib/store';
 import {
@@ -63,7 +63,7 @@ export default function Relatorios() {
   const [custoVar, setCustoVar] = useState(0);
   const [obs, setObs] = useState('');
 
-  const custoAtual = calcularCustoTotalMensal(data);
+  const custoAtual = calcularCustoOperacionalMensal(data);
 
   const openDialog = (registro?: RegistroMensal) => {
     if (registro) {
@@ -80,7 +80,7 @@ export default function Relatorios() {
       setMes(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`);
       setSessoes(0);
       setReceita(0);
-      setCustoFixo(calcularTotalCustosOperacionais(data.custosFixos) + calcularTotalDepreciacao(data.custosFixos));
+      setCustoFixo(calcularTotalCustosFixos(data.custosFixos));
       setCustoVar(calcularTotalCustosVariaveis(data.custosVariaveis));
       setObs('');
     }
@@ -148,6 +148,18 @@ export default function Relatorios() {
           </Button>
         }
       />
+
+      {/* Disclaimer */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/30 rounded-xl p-3 flex items-start gap-3"
+      >
+        <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+        <p className="text-xs text-foreground/80">
+          <strong>Importante:</strong> Os valores registrados aqui são para acompanhamento pessoal e não substituem contabilidade profissional. Os cálculos de lucro não incluem impostos — consulte seu contador para apuração fiscal.
+        </p>
+      </motion.div>
 
       {/* Chart */}
       {chartData.length > 1 && (

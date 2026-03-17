@@ -54,6 +54,9 @@ interface DataContextType {
   updateHorasTrabalho: (value: number) => void;
   updateDiasUteis: (value: number) => void;
   updateSessoesporDia: (value: number) => void;
+  updateDuracaoPadrao: (value: number) => void;
+  updateRegimeTributario: (regime: string, imposto: number) => void;
+  updateImpostoPercentual: (value: number) => void;
   // Serviços
   addTipoServico: (servico: Omit<TipoServico, 'id'>) => void;
   updateTipoServico: (id: string, updates: Partial<TipoServico>) => void;
@@ -249,6 +252,18 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     setData(prev => ({ ...prev, sessoesporDia: value }));
   }, []);
 
+  const updateDuracaoPadrao = useCallback((value: number) => {
+    setData(prev => ({ ...prev, duracaoPadraoMinutos: value }));
+  }, []);
+
+  const updateRegimeTributario = useCallback((regime: string, imposto: number) => {
+    setData(prev => ({ ...prev, regimeTributario: regime as any, impostoPercentual: imposto }));
+  }, []);
+
+  const updateImpostoPercentual = useCallback((value: number) => {
+    setData(prev => ({ ...prev, impostoPercentual: value }));
+  }, []);
+
   // --- Serviços ---
   const addTipoServico = useCallback((servico: Omit<TipoServico, 'id'>) => {
     setData(prev => ({
@@ -349,6 +364,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       updateHorasTrabalho,
       updateDiasUteis,
       updateSessoesporDia,
+      updateDuracaoPadrao,
+      updateRegimeTributario,
+      updateImpostoPercentual,
       addTipoServico,
       updateTipoServico,
       removeTipoServico,

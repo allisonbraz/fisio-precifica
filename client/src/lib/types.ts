@@ -35,12 +35,16 @@ export interface CustoVariavel {
   descricao: string;
 }
 
+export type ReservaModo = 'fixo' | 'percentual';
+
 export interface ReservaEstrategica {
   id: string;
   nome: string;
   valor: number;
   frequencia: FrequenciaCusto;
   descricao: string;
+  modo?: ReservaModo;
+  percentual?: number; // % sobre receita bruta estimada (ex: 0.05 = 5%)
 }
 
 export interface TipoServico {
@@ -71,6 +75,8 @@ export interface RegistroMensal {
   observacoes: string;
 }
 
+export type RegimeTributario = 'mei' | 'simples' | 'presumido' | 'autonomo' | 'personalizado';
+
 export interface DadosPrecificacao {
   custosFixos: CustoFixo[];
   custosVariaveis: CustoVariavel[];
@@ -84,4 +90,7 @@ export interface DadosPrecificacao {
   horasTrabalho: number;
   diasUteis: number;
   sessoesporDia: number;
+  duracaoPadraoMinutos: number;
+  regimeTributario: RegimeTributario;
+  impostoPercentual: number;
 }

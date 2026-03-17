@@ -89,7 +89,7 @@ const defaultData: DadosPrecificacao = {
   custosVariaveis: defaultCustosVariaveis,
   reservasEstrategicas: defaultReservasEstrategicas,
   sessoesMeta: 80,
-  margemLucro: 0.30,
+  margemLucro: 0.15,
   precoDefinido: 0,
   tiposServico: defaultTiposServico,
   planosTratamento: [],
@@ -97,6 +97,9 @@ const defaultData: DadosPrecificacao = {
   horasTrabalho: 8,
   diasUteis: 22,
   sessoesporDia: 8,
+  duracaoPadraoMinutos: 50,
+  regimeTributario: 'simples',
+  impostoPercentual: 0.06,
 };
 
 const defaultPerfil: PerfilProfissional = {
@@ -217,6 +220,25 @@ export function loadData(): DadosPrecificacao {
         for (const def of defaultReservasEstrategicas) {
           if (!existingNames.has(def.nome.toLowerCase())) parsed.reservasEstrategicas.push({ ...def });
         }
+      }
+
+      // Migration: add new fields if missing
+      if (parsed.duracaoPadraoMinutos === undefined) {
+        parsed.duracaoPadraoMinutos = 50;
+      }
+      if (parsed.regimeTributario === undefined) {
+        parsed.regimeTributario = 'simples';
+      }
+      if (parsed.impostoPercentual === undefined) {
+        parsed.impostoPercentual = 0.06;
+      }
+
+      // Migration: margemLucro was previously markup (could be > 1.0 for >100%).
+      // Now it's margin on revenue (0.0 to ~0.50 max realistic).
+      // If margemLucro > 0.50, it's likely old markup format — convert.
+      if (parsed.margemLucro !== undefined && parsed.margemLucro > 0.50) {
+        // Convert markup to margin: margin = markup / (1 + markup)
+        parsed.margemLucro = parsed.margemLucro / (1 + parsed.margemLucro);
       }
 
       return { ...defaultData, ...parsed };

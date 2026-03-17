@@ -29,20 +29,8 @@ import {
 import { Button } from '@/components/ui/button';
 import StatCard from '@/components/StatCard';
 import { useData } from '@/contexts/DataContext';
-import {
-  calcularTotalCustosOperacionais,
-  calcularTotalDepreciacao,
-  calcularTotalCustosVariaveis,
-  calcularTotalReservas,
-  calcularCustoTotalMensal,
-  calcularCustoTotalPorSessao,
-  calcularPrecoMinimo,
-  calcularTaxaOcupacao,
-  calcularPontoEquilibrio,
-  calcularValorHora,
-  formatarMoeda,
-  formatarPercentual,
-} from '@/lib/store';
+import { useMetrics } from '@/lib/useMetrics';
+import { simularPreco, formatarMoeda, formatarPercentual } from '@/lib/store';
 import {
   PieChart,
   Pie,
@@ -65,37 +53,7 @@ const PIE_COLORS = ['#b5725d', '#7c9a82', '#d4a853', '#c2785c', '#5a7d64'];
 export default function Home() {
   const { data } = useData();
 
-  const metrics = useMemo(() => {
-    const custoOperacional = calcularTotalCustosOperacionais(data.custosFixos);
-    const custoDepreciacao = calcularTotalDepreciacao(data.custosFixos);
-    const custoVarTotal = calcularTotalCustosVariaveis(data.custosVariaveis);
-    const totalReservas = calcularTotalReservas(data.reservasEstrategicas);
-    const custoMensal = calcularCustoTotalMensal(data);
-    const custoPorSessao = calcularCustoTotalPorSessao(data);
-    const precoPorSessao = calcularPrecoMinimo(data); // preço = custo + margem
-    const taxaOcupacao = calcularTaxaOcupacao(data);
-    const pontoEquilibrio = calcularPontoEquilibrio(data, precoPorSessao);
-    const valorHora = calcularValorHora(data, precoPorSessao);
-    const receitaPotencial = precoPorSessao * data.sessoesMeta;
-    const lucroOperacional = receitaPotencial - custoMensal;
-    const lucroDisponivel = lucroOperacional - totalReservas;
-
-    return {
-      custoOperacional,
-      custoDepreciacao,
-      custoVarTotal,
-      totalReservas,
-      custoMensal,
-      custoPorSessao,
-      precoPorSessao,
-      taxaOcupacao,
-      pontoEquilibrio,
-      valorHora,
-      receitaPotencial,
-      lucroOperacional,
-      lucroDisponivel,
-    };
-  }, [data]);
+  const metrics = useMetrics(data);
 
   const pieData = useMemo(() => {
     const topCustos = [...data.custosFixos, ...data.custosVariaveis]
@@ -108,13 +66,12 @@ export default function Home() {
   const simulacaoData = useMemo(() => {
     const precos = [80, 100, 120, 150, 180, 200, 250, 300];
     return precos.map(p => {
-      const receita = p * data.sessoesMeta;
-      const lucro = receita - metrics.custoMensal;
-      return { preco: `R$${p}`, lucro: Math.max(lucro, 0), receita };
+      const sim = simularPreco(data, p);
+      return { preco: `R$${p}`, lucro: Math.max(sim.lucroDisponivel, 0), receita: sim.receitaMensal };
     });
-  }, [data, metrics]);
+  }, [data]);
 
-  const hasData = metrics.custoMensal > 0;
+  const hasData = metrics.custoTotalMensal > 0;
 
   return (
     <div className="space-y-6">
@@ -170,31 +127,31 @@ export default function Home() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard
             title="Custo Mensal Total"
-            value={formatarMoeda(metrics.custoMensal)}
-            subtitle="Fixos + Variáveis"
+            value={formatarMoeda(metrics.custoTotalMensal)}
+            subtitle="Fixos + Variáveis + Reservas"
             icon={Wallet}
             variant="primary"
           />
           <StatCard
             title="Custo por Sessão"
-            value={formatarMoeda(metrics.custoPorSessao)}
-            subtitle="Mínimo para não ter prejuízo"
+            value={formatarMoeda(metrics.custoTotalSessao)}
+            subtitle="Base para formação de preço"
             icon={DollarSign}
             variant="warning"
           />
           <StatCard
             title="Preço por Sessão"
             value={formatarMoeda(metrics.precoPorSessao)}
-            subtitle={`Com margem de ${(data.margemLucro * 100).toFixed(0)}%`}
+            subtitle={`Margem ${metrics.margemPercent.toFixed(0)}% + Impostos ${(data.impostoPercentual * 100).toFixed(0)}%`}
             icon={Calculator}
             variant="success"
           />
           <StatCard
-            title="Lucro Operacional"
-            value={formatarMoeda(metrics.lucroOperacional)}
-            subtitle={metrics.lucroOperacional >= 0 ? `Disponível: ${formatarMoeda(metrics.lucroDisponivel)}` : 'Inviável — revise custos'}
-            icon={metrics.lucroOperacional >= 0 ? CheckCircle2 : AlertTriangle}
-            variant={metrics.lucroOperacional >= 0 ? 'success' : 'danger'}
+            title="Lucro Disponível"
+            value={formatarMoeda(metrics.lucroDisponivel)}
+            subtitle={metrics.lucroDisponivel >= 0 ? `Operacional: ${formatarMoeda(metrics.lucroOperacional)}` : 'Inviável — revise custos'}
+            icon={metrics.lucroDisponivel >= 0 ? CheckCircle2 : AlertTriangle}
+            variant={metrics.lucroDisponivel >= 0 ? 'success' : 'danger'}
           />
         </div>
       </div>
