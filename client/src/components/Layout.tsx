@@ -21,6 +21,8 @@ import {
   ClipboardList,
   Users,
   ShieldCheck,
+  LogIn,
+  LogOut,
 } from 'lucide-react';
 import { useAuth } from '@/_core/hooks/useAuth';
 import { Button } from '@/components/ui/button';
@@ -47,7 +49,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { isRegistered } = useData();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const isAdmin = user?.role === 'admin';
 
   return (
@@ -152,10 +154,32 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         </nav>
 
         {/* Footer */}
-        <div className="p-4 border-t border-border">
+        <div className="p-4 border-t border-border space-y-3">
+          {user ? (
+            <div className="text-center space-y-2">
+              <p className="text-xs text-muted-foreground truncate" title={user.email ?? ''}>
+                {user.email}
+              </p>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full rounded-xl text-xs gap-1.5 text-muted-foreground hover:text-foreground"
+                onClick={() => { logout(); setSidebarOpen(false); }}
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                Sair
+              </Button>
+            </div>
+          ) : (
+            <Link href="/login" onClick={() => setSidebarOpen(false)}>
+              <Button variant="default" size="sm" className="w-full rounded-xl gap-1.5">
+                <LogIn className="w-3.5 h-3.5" />
+                Entrar / Cadastrar
+              </Button>
+            </Link>
+          )}
           <div className="text-xs text-muted-foreground text-center">
             <p className="font-medium">FisioPrecifica v2.0</p>
-            <p className="mt-0.5 opacity-70">Seus dados ficam salvos localmente</p>
             <p className="mt-2 text-[10px] opacity-50">Feito por Allison Braz — FisioMind</p>
           </div>
         </div>
@@ -181,7 +205,28 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               </div>
               <span className="font-heading font-bold text-sm">FisioPrecifica</span>
             </div>
-            <div className="w-10" /> {/* Spacer */}
+            {user ? (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={logout}
+                className="rounded-xl"
+                aria-label="Sair"
+              >
+                <LogOut className="w-4 h-4" />
+              </Button>
+            ) : (
+              <Link href="/login">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="rounded-xl"
+                  aria-label="Entrar"
+                >
+                  <LogIn className="w-4 h-4" />
+                </Button>
+              </Link>
+            )}
           </div>
         </header>
 
