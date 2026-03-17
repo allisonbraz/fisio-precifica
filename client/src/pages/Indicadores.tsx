@@ -121,7 +121,7 @@ export default function Indicadores() {
   ], [metrics]);
 
   const radarData = useMemo(() => scoreItems.map(item => ({
-    subject: item.label.split(' ').slice(0, 2).join(' '),
+    subject: item.label,
     value: item.value,
     fullMark: 100,
   })), [scoreItems]);
