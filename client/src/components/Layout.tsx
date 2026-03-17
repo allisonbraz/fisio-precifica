@@ -154,7 +154,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         </nav>
 
         {/* Footer */}
-        <div className="p-4 border-t border-border space-y-3">
+        <div className={`p-4 border-t border-border space-y-3 ${!isRegistered ? 'pb-20' : ''}`}>
           {user ? (
             <div className="text-center space-y-2">
               <p className="text-xs text-muted-foreground truncate" title={user.email ?? ''}>

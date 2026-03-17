@@ -107,13 +107,21 @@ export default function LeadGate() {
               </p>
             </div>
           </div>
-          <Button
-            onClick={() => setShowModal(true)}
-            className="bg-white text-terracotta-dark hover:bg-cream font-semibold rounded-xl px-6 whitespace-nowrap"
-          >
-            Cadastrar grátis
-            <ArrowRight className="w-4 h-4 ml-2" />
-          </Button>
+          <div className="flex items-center gap-2">
+            <a
+              href="/login"
+              className="text-xs sm:text-sm underline underline-offset-2 opacity-90 hover:opacity-100 whitespace-nowrap"
+            >
+              Já tem conta? Entrar
+            </a>
+            <Button
+              onClick={() => setShowModal(true)}
+              className="bg-white text-terracotta-dark hover:bg-cream font-semibold rounded-xl px-6 whitespace-nowrap"
+            >
+              Cadastrar grátis
+              <ArrowRight className="w-4 h-4 ml-2" />
+            </Button>
+          </div>
         </div>
       </motion.div>
 
