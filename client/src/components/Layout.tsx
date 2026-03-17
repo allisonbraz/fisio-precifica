@@ -26,7 +26,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/_core/hooks/useAuth';
 import { Button } from '@/components/ui/button';
-import { useData } from '@/contexts/DataContext';
+
 
 const navItems = [
   { path: '/', label: 'Início', icon: Home },
@@ -48,7 +48,6 @@ const adminNavItems = [
 export default function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const { isRegistered } = useData();
   const { user, logout } = useAuth();
   const isAdmin = user?.role === 'admin';
 
@@ -154,7 +153,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         </nav>
 
         {/* Footer */}
-        <div className={`p-4 border-t border-border space-y-3 ${!isRegistered ? 'pb-20' : ''}`}>
+        <div className={`p-4 border-t border-border space-y-3 ${!user ? 'pb-20' : ''}`}>
           {user ? (
             <div className="text-center space-y-2">
               <p className="text-xs text-muted-foreground truncate" title={user.email ?? ''}>
@@ -231,7 +230,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         </header>
 
         {/* Page Content - add bottom padding when lead gate banner is visible */}
-        <div className={`p-4 sm:p-6 lg:p-8 ${!isRegistered ? 'pb-24' : ''}`}>
+        <div className={`p-4 sm:p-6 lg:p-8 ${!user ? 'pb-24' : ''}`}>
           {children}
         </div>
 

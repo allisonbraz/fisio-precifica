@@ -257,7 +257,7 @@ export default function Reservas() {
             variant="outline"
             className="rounded-xl gap-1.5"
             onClick={() => {
-              if (!isRegistered) { toast.error('Cadastre-se para editar'); return; }
+              if (!isRegistered) { toast.error('Faça login para editar'); return; }
               setDialogOpen(true);
             }}
             disabled={!isRegistered}
@@ -309,7 +309,7 @@ export default function Reservas() {
                       <CurrencyInput
                         value={reserva.valor}
                         onChange={(v) => {
-                          if (!isRegistered) { toast.error('Cadastre-se para editar'); return; }
+                          if (!isRegistered) { toast.error('Faça login para editar'); return; }
                           updateReserva(reserva.id, { valor: v });
                         }}
                         disabled={!isRegistered}

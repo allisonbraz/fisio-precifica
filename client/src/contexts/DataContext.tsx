@@ -24,13 +24,13 @@ import {
   savePerfil,
 } from '@/lib/store';
 import { trpc } from '@/lib/trpc';
+import { useAuth } from '@/_core/hooks/useAuth';
 
 interface DataContextType {
   data: DadosPrecificacao;
   lead: LeadData | null;
   perfil: PerfilProfissional;
   isRegistered: boolean;
-  registerLead: (lead: LeadData) => void;
   updatePerfil: (updates: Partial<PerfilProfissional>) => void;
   // Custos Fixos (operacionais + depreciação)
   updateCustoFixo: (id: string, updates: Partial<CustoFixo>) => void;
@@ -77,16 +77,33 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [data, setData] = useState<DadosPrecificacao>(() => loadData());
   const [lead, setLead] = useState<LeadData | null>(() => loadLead());
   const [perfil, setPerfilState] = useState<PerfilProfissional>(() => loadPerfil());
+  const { user } = useAuth();
 
-  const isRegistered = lead !== null;
+  // isRegistered = logged in via Supabase OR legacy lead registration
+  const isRegistered = !!user || lead !== null;
+  const syncEmail = user?.email ?? lead?.email ?? null;
   const syncTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const saveMutation = trpc.pricing.save.useMutation();
   const initialSyncDone = useRef(false);
 
-  // Load from server on first mount when lead exists
+  // Auto-register lead data when user logs in via Supabase
+  useEffect(() => {
+    if (user?.email && !lead) {
+      const autoLead: LeadData = {
+        nome: user.name || user.email.split('@')[0],
+        email: user.email,
+        whatsapp: '',
+        registeredAt: new Date().toISOString(),
+      };
+      saveLead(autoLead);
+      setLead(autoLead);
+    }
+  }, [user, lead]);
+
+  // Load from server on first mount when we have an email
   const { data: serverResult } = trpc.pricing.load.useQuery(
-    { email: lead?.email ?? '' },
-    { enabled: !!lead?.email && !initialSyncDone.current },
+    { email: syncEmail ?? '' },
+    { enabled: !!syncEmail && !initialSyncDone.current },
   );
 
   useEffect(() => {
@@ -103,11 +120,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     saveData(data);
 
-    if (!lead?.email) return;
+    if (!syncEmail) return;
     if (syncTimer.current) clearTimeout(syncTimer.current);
     syncTimer.current = setTimeout(() => {
       saveMutation.mutate(
-        { email: lead.email, data: data as unknown as Record<string, unknown> },
+        { email: syncEmail, data: data as unknown as Record<string, unknown> },
         { onError: (err) => console.warn('[Sync] Failed to save to server:', err) },
       );
     }, 2000);
@@ -115,12 +132,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     return () => {
       if (syncTimer.current) clearTimeout(syncTimer.current);
     };
-  }, [data, lead?.email]);
-
-  const registerLead = useCallback((newLead: LeadData) => {
-    saveLead(newLead);
-    setLead(newLead);
-  }, []);
+  }, [data, syncEmail]);
 
   const updatePerfil = useCallback((updates: Partial<PerfilProfissional>) => {
     setPerfilState(prev => {
@@ -319,7 +331,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       lead,
       perfil,
       isRegistered,
-      registerLead,
       updatePerfil,
       updateCustoFixo,
       addCustoFixo,

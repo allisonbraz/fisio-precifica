@@ -147,7 +147,7 @@ export default function Custos() {
 
   const openAddDialog = (type: 'operacional' | 'depreciacao' | 'variavel') => {
     if (!isRegistered) {
-      toast.error('Cadastre-se para editar os custos');
+      toast.error('Faça login para editar os custos');
       return;
     }
     setDialogType(type);
@@ -221,7 +221,7 @@ export default function Custos() {
                 <Switch
                   checked={custo.temParcelaAtiva || false}
                   onCheckedChange={(checked) => {
-                    if (!isRegistered) { toast.error('Cadastre-se para editar'); return; }
+                    if (!isRegistered) { toast.error('Faça login para editar'); return; }
                     updateCustoFixo(custo.id, { temParcelaAtiva: checked });
                     if (checked) {
                       toast.warning('Depreciação bloqueada: parcela ativa detectada');
@@ -269,7 +269,7 @@ export default function Custos() {
               <CurrencyInput
                 value={isBlocked ? 0 : custo.valor}
                 onChange={(v) => {
-                  if (!isRegistered) { toast.error('Cadastre-se para editar'); return; }
+                  if (!isRegistered) { toast.error('Faça login para editar'); return; }
                   updateCustoFixo(custo.id, { valor: v });
                 }}
                 disabled={!isRegistered || isBlocked}
@@ -397,7 +397,7 @@ export default function Custos() {
               <CurrencyInput
                 value={custo.valor}
                 onChange={(v) => {
-                  if (!isRegistered) { toast.error('Cadastre-se para editar'); return; }
+                  if (!isRegistered) { toast.error('Faça login para editar'); return; }
                   updateCustoVariavel(custo.id, { valor: v });
                 }}
                 disabled={!isRegistered}

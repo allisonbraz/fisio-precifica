@@ -71,7 +71,7 @@ export default function Perfil() {
 
   const generatePDF = async () => {
     if (!isRegistered) {
-      toast.error('Cadastre-se para baixar o relatório');
+      toast.error('Faça login para baixar o relatório');
       return;
     }
 
@@ -440,7 +440,7 @@ export default function Perfil() {
             )}
             <button
               onClick={() => {
-                if (!isRegistered) { toast.error('Cadastre-se para editar'); return; }
+                if (!isRegistered) { toast.error('Faça login para editar'); return; }
                 fileInputRef.current?.click();
               }}
               className="absolute bottom-0 right-0 w-10 h-10 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-lg hover:bg-primary/90 transition-colors"

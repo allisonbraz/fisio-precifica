@@ -141,7 +141,7 @@ export default function Precificacao() {
   const MarginIcon = marginBand.icon;
 
   const handleMargemChange = useCallback((margem: number) => {
-    if (!isRegistered) { toast.error('Cadastre-se para editar'); return; }
+    if (!isRegistered) { toast.error('Faça login para editar'); return; }
     setActiveMode('margem');
     updateMargemLucro(margem / 100);
     const custoTotal = calcularCustoTotalPorSessao(data);
@@ -150,7 +150,7 @@ export default function Precificacao() {
   }, [data, isRegistered, updateMargemLucro, updatePrecoDefinido]);
 
   const handlePrecoChange = useCallback((preco: number) => {
-    if (!isRegistered) { toast.error('Cadastre-se para editar'); return; }
+    if (!isRegistered) { toast.error('Faça login para editar'); return; }
     setActiveMode('preco');
     updatePrecoDefinido(preco);
     const newMargem = calcularMargemDoPreco(data, preco);
@@ -179,7 +179,7 @@ export default function Precificacao() {
         <div className="lg:col-span-1 space-y-4">
           {!isRegistered && (
             <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/30 rounded-xl p-3 text-xs text-amber-700 dark:text-amber-400">
-              Cadastre-se gratuitamente para editar os campos abaixo.
+              Faça login para editar os campos abaixo.
             </div>
           )}
           {/* Jornada de Trabalho — moved from Configurações */}
@@ -211,7 +211,7 @@ export default function Precificacao() {
                   type="number"
                   value={data.horasTrabalho}
                   onChange={(e) => {
-                    if (!isRegistered) { toast.error('Cadastre-se para editar'); return; }
+                    if (!isRegistered) { toast.error('Faça login para editar'); return; }
                     updateHorasTrabalho(Math.max(1, parseInt(e.target.value) || 0));
                   }}
                   className="rounded-xl font-mono text-sm"
@@ -238,7 +238,7 @@ export default function Precificacao() {
                   type="number"
                   value={data.diasUteis}
                   onChange={(e) => {
-                    if (!isRegistered) { toast.error('Cadastre-se para editar'); return; }
+                    if (!isRegistered) { toast.error('Faça login para editar'); return; }
                     updateDiasUteis(Math.max(1, parseInt(e.target.value) || 0));
                   }}
                   className="rounded-xl font-mono text-sm"
@@ -266,7 +266,7 @@ export default function Precificacao() {
                 type="number"
                 value={data.sessoesporDia}
                 onChange={(e) => {
-                  if (!isRegistered) { toast.error('Cadastre-se para editar'); return; }
+                  if (!isRegistered) { toast.error('Faça login para editar'); return; }
                   updateSessoesporDia(Math.max(1, parseInt(e.target.value) || 0));
                 }}
                 className="rounded-xl font-mono text-sm"
@@ -309,7 +309,7 @@ export default function Precificacao() {
               <Slider
                 value={[data.sessoesMeta]}
                 onValueChange={([v]) => {
-                  if (!isRegistered) { toast.error('Cadastre-se para editar'); return; }
+                  if (!isRegistered) { toast.error('Faça login para editar'); return; }
                   updateSessoesMeta(v);
                 }}
                 min={1}

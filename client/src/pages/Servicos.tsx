@@ -81,7 +81,7 @@ export default function Servicos() {
 
   const guardEdit = (fn: () => void) => {
     if (!isRegistered) {
-      toast.error('Cadastre-se para editar');
+      toast.error('Faça login para editar');
       return;
     }
     fn();
