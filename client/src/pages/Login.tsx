@@ -22,7 +22,7 @@ export default function Login() {
 
     try {
       if (mode === 'signup') {
-        const { error } = await supabase.auth.signUp({
+        const { data: signUpData, error } = await supabase.auth.signUp({
           email,
           password,
           options: {
@@ -30,7 +30,14 @@ export default function Login() {
           },
         });
         if (error) throw error;
-        toast.success('Conta criada! Verifique seu e-mail para confirmar.');
+        if (signUpData.session) {
+          await utils.auth.me.invalidate();
+          toast.success('Conta criada com sucesso!');
+          setLocation('/');
+          return;
+        }
+        toast.success('Conta criada! Clique agora para entrar.');
+        setMode('login');
       } else {
         const { error } = await supabase.auth.signInWithPassword({
           email,

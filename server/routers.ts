@@ -52,22 +52,18 @@ export const appRouter = router({
   }),
 
   pricing: router({
-    save: publicProcedure
+    save: protectedProcedure
       .input(z.object({
-        email: z.string().email(),
         data: z.record(z.string(), z.unknown()),
       }))
-      .mutation(async ({ input }) => {
-        const saved = await savePricingData(input.email, input.data);
+      .mutation(async ({ input, ctx }) => {
+        const saved = await savePricingData(ctx.user.email!, input.data);
         return { success: saved };
       }),
 
-    load: publicProcedure
-      .input(z.object({
-        email: z.string().email(),
-      }))
-      .query(async ({ input }) => {
-        const data = await loadPricingData(input.email);
+    load: protectedProcedure
+      .query(async ({ ctx }) => {
+        const data = await loadPricingData(ctx.user.email!);
         return { data };
       }),
   }),

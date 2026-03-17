@@ -84,10 +84,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   // isRegistered = logged in via Supabase OR legacy lead registration
   const isRegistered = !!user || lead !== null;
-  const syncEmail = user?.email ?? lead?.email ?? null;
+  const isAuthenticated = !!user;
   const syncTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const saveMutation = trpc.pricing.save.useMutation();
   const initialSyncDone = useRef(false);
+  const lastSyncedUser = useRef<string | null>(null);
 
   // Auto-register lead data when user logs in via Supabase
   useEffect(() => {
@@ -103,10 +104,23 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     }
   }, [user, lead]);
 
-  // Load from server on first mount when we have an email
+  // Reset local data when user changes (account switch)
+  useEffect(() => {
+    const currentEmail = user?.email ?? null;
+    if (lastSyncedUser.current !== null && lastSyncedUser.current !== currentEmail) {
+      // User changed — reset local state to defaults
+      initialSyncDone.current = false;
+      const fresh = resetData();
+      setData(fresh);
+      setPerfilState(loadPerfil()); // reload defaults
+    }
+    lastSyncedUser.current = currentEmail;
+  }, [user?.email]);
+
+  // Load from server on first mount when authenticated
   const { data: serverResult } = trpc.pricing.load.useQuery(
-    { email: syncEmail ?? '' },
-    { enabled: !!syncEmail && !initialSyncDone.current },
+    undefined,
+    { enabled: isAuthenticated && !initialSyncDone.current },
   );
 
   useEffect(() => {
@@ -123,11 +137,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     saveData(data);
 
-    if (!syncEmail) return;
+    if (!isAuthenticated) return;
     if (syncTimer.current) clearTimeout(syncTimer.current);
     syncTimer.current = setTimeout(() => {
       saveMutation.mutate(
-        { email: syncEmail, data: data as unknown as Record<string, unknown> },
+        { data: data as unknown as Record<string, unknown> },
         { onError: (err) => console.warn('[Sync] Failed to save to server:', err) },
       );
     }, 2000);
@@ -135,7 +149,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     return () => {
       if (syncTimer.current) clearTimeout(syncTimer.current);
     };
-  }, [data, syncEmail]);
+  }, [data, isAuthenticated]);
 
   const updatePerfil = useCallback((updates: Partial<PerfilProfissional>) => {
     setPerfilState(prev => {

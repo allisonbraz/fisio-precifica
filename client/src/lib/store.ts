@@ -33,7 +33,7 @@ const defaultCustosFixos: CustoFixo[] = [
   { id: '1', nome: 'Pró-labore', valor: 0, frequencia: 'mensal', observacao: '', descricao: 'Sua retirada mensal como sócio/proprietário. Ex: R$ 5.000/mês é o mínimo que você precisa receber.' },
   { id: '2', nome: 'Salários + Encargos', valor: 0, frequencia: 'mensal', observacao: '', descricao: 'Folha de pagamento de funcionários (recepcionista, auxiliar, etc). Ex: R$ 2.000/mês + encargos.' },
   { id: '3', nome: 'CREFITO ou outro conselho de classe', valor: 0, frequencia: 'anual', observacao: '', descricao: 'Anuidade do conselho profissional (CREFITO, CRM, etc). Ex: R$ 600/ano. Será dividido por 12 automaticamente.' },
-  { id: '4', nome: 'Associação profissional', valor: 0, frequencia: 'anual', observacao: '', descricao: 'Anuidade de associações como ABRAFITO, ABF, COFFITO ou sindicatos. Ex: R$ 360/ano.' },
+  { id: '4', nome: 'Associação profissional', valor: 0, frequencia: 'anual', observacao: '', descricao: 'Anuidade de associações como ABRAFITO, ABF ou sindicatos. Ex: R$ 360/ano.' },
   { id: '5', nome: 'Aluguel do consultório/sala', valor: 0, frequencia: 'mensal', observacao: '', descricao: 'Valor mensal do aluguel do espaço onde você atende. Ex: R$ 1.500/mês por uma sala comercial.' },
   { id: '6', nome: 'Contador/Contabilidade', valor: 0, frequencia: 'mensal', observacao: '', descricao: 'Honorários do escritório de contabilidade. Ex: R$ 300 a R$ 800/mês dependendo do porte.' },
   { id: '7', nome: 'Software de Gestão', valor: 0, frequencia: 'mensal', observacao: '', descricao: 'Assinatura de sistemas como ZenFisio, Fisioclin, etc. Ex: R$ 100 a R$ 300/mês.' },
@@ -71,7 +71,8 @@ const defaultReservasEstrategicas: ReservaEstrategica[] = [
   { id: 'r2', nome: 'Cursos e capacitação estratégica', valor: 0, frequencia: 'mensal', descricao: 'Investimento em formações que não são obrigatórias, mas agregam valor. Ex: R$ 500/mês para especializações.' },
   { id: 'r3', nome: 'Mentorias e consultorias', valor: 0, frequencia: 'mensal', descricao: 'Acompanhamento profissional para crescimento do negócio. Ex: R$ 800/mês de mentoria de gestão.' },
   { id: 'r4', nome: 'Reserva de emergência', valor: 0, frequencia: 'mensal', descricao: 'Colchão financeiro para imprevistos (3 a 6 meses de custos). Ex: R$ 1.000/mês até atingir a meta.' },
-  { id: 'r5', nome: 'Férias e 13º (provisão)', valor: 0, frequencia: 'mensal', descricao: 'Provisão mensal para se pagar férias e 13º como autônomo. Ex: Pró-labore ÷ 12 + Pró-labore/3 ÷ 12.' },
+  { id: 'r5', nome: 'Férias (provisão)', valor: 0, frequencia: 'mensal', descricao: 'Provisão mensal para se pagar férias como autônomo. Ex: Pró-labore ÷ 12 + 1/3 constitucional ÷ 12.' },
+  { id: 'r5b', nome: '13º salário (provisão)', valor: 0, frequencia: 'mensal', descricao: 'Provisão mensal para se pagar o 13º como autônomo. Ex: Pró-labore ÷ 12.' },
   { id: 'r6', nome: 'Expansão do negócio', valor: 0, frequencia: 'mensal', descricao: 'Reserva para abrir nova unidade, contratar mais profissionais ou ampliar o espaço. Ex: R$ 500/mês.' },
   { id: 'r7', nome: 'Outras reservas estratégicas', valor: 0, frequencia: 'mensal', descricao: 'Qualquer outra reserva por decisão estratégica do gestor.' },
 ];
@@ -216,6 +217,14 @@ export function loadData(): DadosPrecificacao {
       if (!parsed.reservasEstrategicas) {
         parsed.reservasEstrategicas = [...defaultReservasEstrategicas];
       } else {
+        // Migration: split old "Férias e 13º (provisão)" into two separate items
+        const oldComboIdx = parsed.reservasEstrategicas.findIndex(
+          (r: any) => r.nome.toLowerCase().includes('férias e 13')
+        );
+        if (oldComboIdx !== -1) {
+          parsed.reservasEstrategicas.splice(oldComboIdx, 1);
+        }
+
         const existingNames = new Set(parsed.reservasEstrategicas.map((r: any) => r.nome.toLowerCase()));
         for (const def of defaultReservasEstrategicas) {
           if (!existingNames.has(def.nome.toLowerCase())) parsed.reservasEstrategicas.push({ ...def });
