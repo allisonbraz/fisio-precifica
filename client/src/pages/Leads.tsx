@@ -188,12 +188,13 @@ export default function Leads() {
       toast.error('Nenhum contato para exportar');
       return;
     }
-    const headers = ['Nome', 'Email', 'WhatsApp', 'Instagram', 'Origem', 'Tem Login', 'Data de Cadastro', 'Último Login'];
+    const headers = ['Nome', 'Email', 'WhatsApp', 'Instagram', 'Especialidades', 'Origem', 'Tem Login', 'Data de Cadastro', 'Último Login'];
     const rows = contactsData.items.map(c => [
       c.nome,
       c.email,
       c.whatsapp,
       c.instagram || '',
+      c.especialidades || '',
       c.source,
       c.hasOAuth ? 'Sim' : 'Não',
       new Date(c.createdAt).toLocaleString('pt-BR'),
@@ -418,6 +419,11 @@ export default function Leads() {
                         </a>
                       </div>
                     )}
+                    {contact.especialidades && (
+                      <div className="text-xs text-muted-foreground/80 bg-muted/30 rounded-lg px-2 py-1">
+                        {contact.especialidades}
+                      </div>
+                    )}
                     <div className="flex items-center gap-2 text-xs text-muted-foreground/70">
                       <Calendar className="w-3 h-3 flex-shrink-0" />
                       {new Date(contact.createdAt).toLocaleDateString('pt-BR')}
@@ -440,6 +446,7 @@ export default function Leads() {
                     <th scope="col" className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">E-mail</th>
                     <th scope="col" className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">WhatsApp</th>
                     <th scope="col" className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Instagram</th>
+                    <th scope="col" className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Especialidades</th>
                     <th scope="col" className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Origem</th>
                     <th scope="col" className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Data</th>
                   </tr>
@@ -491,6 +498,13 @@ export default function Leads() {
                           >
                             {contact.instagram}
                           </a>
+                        ) : (
+                          <span className="text-sm text-muted-foreground/50">—</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        {contact.especialidades ? (
+                          <span className="text-sm text-foreground/80">{contact.especialidades}</span>
                         ) : (
                           <span className="text-sm text-muted-foreground/50">—</span>
                         )}

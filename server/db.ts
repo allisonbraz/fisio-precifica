@@ -150,6 +150,7 @@ export interface UnifiedContact {
   email: string;
   whatsapp: string;
   instagram: string;
+  especialidades: string;
   source: string;
   hasOAuth: boolean;
   createdAt: Date;
@@ -169,7 +170,7 @@ export async function getUnifiedContacts(limit = 100, offset = 0): Promise<{ ite
   ]);
 
   // Build profile lookup from pricing_data JSONB (_perfil field)
-  const perfilByEmail = new Map<string, { whatsapp?: string; instagram?: string }>();
+  const perfilByEmail = new Map<string, { whatsapp?: string; instagram?: string; especialidades?: string }>();
   for (const pd of allPricing) {
     const perfil = (pd.data as Record<string, unknown>)?._perfil as Record<string, string> | undefined;
     if (perfil) {
@@ -198,6 +199,7 @@ export async function getUnifiedContacts(limit = 100, offset = 0): Promise<{ ite
       email: lead.email,
       whatsapp: lead.whatsapp || matchedUser?.whatsapp || perfil?.whatsapp || '',
       instagram: perfil?.instagram || '',
+      especialidades: perfil?.especialidades || '',
       source: matchedUser ? `${lead.source || 'banner'} + login` : (lead.source || 'banner'),
       hasOAuth: !!matchedUser,
       createdAt: lead.createdAt,
@@ -215,6 +217,7 @@ export async function getUnifiedContacts(limit = 100, offset = 0): Promise<{ ite
       email: user.email!,
       whatsapp: user.whatsapp || perfil?.whatsapp || '',
       instagram: perfil?.instagram || '',
+      especialidades: perfil?.especialidades || '',
       source: user.source || 'supabase',
       hasOAuth: true,
       createdAt: user.createdAt,
