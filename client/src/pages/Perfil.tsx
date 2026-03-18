@@ -562,10 +562,20 @@ export default function Perfil() {
               </Label>
               <Input
                 value={perfil.whatsapp}
-                onChange={(e) => updatePerfil({ whatsapp: e.target.value })}
+                onChange={(e) => {
+                  // Keep only digits
+                  const digits = e.target.value.replace(/\D/g, '').slice(0, 11);
+                  let formatted = '';
+                  if (digits.length > 0) formatted = '(' + digits.slice(0, 2);
+                  if (digits.length >= 2) formatted += ') ';
+                  if (digits.length > 2) formatted += digits.slice(2, 7);
+                  if (digits.length > 7) formatted += '-' + digits.slice(7, 11);
+                  updatePerfil({ whatsapp: formatted });
+                }}
                 placeholder="(11) 99999-9999"
                 className="rounded-xl"
                 disabled={!isRegistered}
+                maxLength={15}
               />
             </div>
 
