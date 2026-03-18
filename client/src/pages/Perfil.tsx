@@ -5,7 +5,7 @@
  * Data used for personalized reports and PDF download
  */
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import {
   UserCircle,
@@ -22,6 +22,8 @@ import {
   Building2,
   Globe,
   Link,
+  Share2,
+  MapPinned,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -74,6 +76,145 @@ export default function Perfil() {
     };
     reader.readAsDataURL(file);
   };
+
+  const shareCard = useCallback(async () => {
+    const canvas = document.createElement('canvas');
+    const w = 600;
+    const h = 340;
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d')!;
+
+    // Background gradient
+    const grad = ctx.createLinearGradient(0, 0, w, h);
+    grad.addColorStop(0, '#faf6f1');
+    grad.addColorStop(1, '#f0ebe4');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.roundRect(0, 0, w, h, 20);
+    ctx.fill();
+
+    // Accent bar
+    ctx.fillStyle = '#b0704a';
+    ctx.fillRect(0, 0, 6, h);
+
+    // Photo circle
+    const photoSize = 80;
+    const photoX = 50;
+    const photoY = 40;
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(photoX + photoSize / 2, photoY + photoSize / 2, photoSize / 2, 0, Math.PI * 2);
+    ctx.clip();
+    if (perfil.logoUrl) {
+      try {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        await new Promise<void>((resolve) => {
+          img.onload = () => resolve();
+          img.onerror = () => resolve();
+          img.src = perfil.logoUrl;
+        });
+        ctx.drawImage(img, photoX, photoY, photoSize, photoSize);
+      } catch {
+        ctx.fillStyle = '#e8ddd4';
+        ctx.fillRect(photoX, photoY, photoSize, photoSize);
+      }
+    } else {
+      ctx.fillStyle = '#e8ddd4';
+      ctx.fillRect(photoX, photoY, photoSize, photoSize);
+      ctx.fillStyle = '#b0704a';
+      ctx.font = 'bold 32px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(perfil.nome?.[0]?.toUpperCase() || '?', photoX + photoSize / 2, photoY + photoSize / 2 + 11);
+    }
+    ctx.restore();
+
+    // Text content
+    const textX = 150;
+    let y = 58;
+
+    ctx.fillStyle = '#3d2e24';
+    ctx.font = 'bold 22px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText(perfil.nome || 'Seu Nome', textX, y);
+    y += 24;
+
+    ctx.fillStyle = '#7a6a5e';
+    ctx.font = '13px sans-serif';
+
+    if (perfil.crefito) {
+      ctx.fillText(perfil.crefito, textX, y);
+      y += 18;
+    }
+    if (perfil.nomeEmpresa) {
+      ctx.fillText(perfil.nomeEmpresa, textX, y);
+      y += 18;
+    }
+    if (perfil.especialidades) {
+      const esp = perfil.especialidades.length > 60 ? perfil.especialidades.slice(0, 57) + '...' : perfil.especialidades;
+      ctx.fillText(esp, textX, y);
+      y += 18;
+    }
+
+    // Divider
+    y = 160;
+    ctx.strokeStyle = '#d9cfc5';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(30, y);
+    ctx.lineTo(w - 30, y);
+    ctx.stroke();
+    y += 24;
+
+    // Contact info
+    ctx.fillStyle = '#5a4a3e';
+    ctx.font = '13px sans-serif';
+    const infoLines: string[] = [];
+    if (perfil.cidade) infoLines.push(`📍 ${perfil.cidade}`);
+    if (perfil.endereco) infoLines.push(`🏠 ${perfil.endereco}`);
+    if (perfil.whatsapp) infoLines.push(`📱 ${perfil.whatsapp}`);
+    if (perfil.instagram) infoLines.push(`📸 ${perfil.instagram}`);
+    if (perfil.site) infoLines.push(`🌐 ${perfil.site}`);
+    if (perfil.outraRedeSocial) infoLines.push(`🔗 ${perfil.outraRedeSocial}`);
+
+    for (const line of infoLines) {
+      ctx.fillText(line, 50, y);
+      y += 20;
+    }
+
+    // Footer branding
+    ctx.fillStyle = '#b0a090';
+    ctx.font = '10px sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText('FisioPrecifica', w - 30, h - 16);
+
+    // Convert to blob and share/download
+    canvas.toBlob(async (blob) => {
+      if (!blob) return;
+      const file = new File([blob], `cartao_${perfil.nome?.replace(/\s+/g, '_') || 'profissional'}.png`, { type: 'image/png' });
+
+      if (navigator.share && navigator.canShare?.({ files: [file] })) {
+        try {
+          await navigator.share({
+            title: perfil.nome || 'Cartão Profissional',
+            text: `${perfil.nome} — ${perfil.especialidades || 'Fisioterapeuta'}`,
+            files: [file],
+          });
+          return;
+        } catch { /* user cancelled, fall through to download */ }
+      }
+
+      // Fallback: download
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = file.name;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success('Cartão salvo como imagem!');
+    }, 'image/png');
+  }, [perfil]);
 
   const generatePDF = async () => {
     if (!isRegistered) {
@@ -473,11 +614,16 @@ export default function Perfil() {
               <MapPin className="w-3.5 h-3.5" /> {perfil.cidade}
             </p>
           )}
+          {perfil.endereco && (
+            <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+              <MapPinned className="w-3 h-3" /> {perfil.endereco}
+            </p>
+          )}
           {perfil.especialidades && (
             <p className="text-xs text-muted-foreground mt-2 leading-relaxed">{perfil.especialidades}</p>
           )}
 
-          <div id="relatorio" className="mt-6 w-full pt-4 border-t border-border">
+          <div id="relatorio" className="mt-6 w-full pt-4 border-t border-border space-y-2">
             <Button
               variant="outline"
               className="w-full rounded-xl gap-1.5"
@@ -486,6 +632,15 @@ export default function Perfil() {
             >
               <FileText className="w-4 h-4" />
               Gerar Relatório Completo
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full rounded-xl gap-1.5"
+              onClick={shareCard}
+              disabled={!isRegistered || !perfil.nome}
+            >
+              <Share2 className="w-4 h-4" />
+              Compartilhar Cartão
             </Button>
           </div>
         </motion.div>
@@ -525,6 +680,20 @@ export default function Perfil() {
                 value={perfil.cidade}
                 onChange={(e) => updatePerfil({ cidade: e.target.value })}
                 placeholder="São Paulo - SP"
+                className="rounded-xl"
+                disabled={!isRegistered}
+              />
+            </div>
+
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label className="flex items-center gap-1.5">
+                <MapPinned className="w-3.5 h-3.5 opacity-60" />
+                Endereço
+              </Label>
+              <Input
+                value={perfil.endereco}
+                onChange={(e) => updatePerfil({ endereco: e.target.value })}
+                placeholder="Rua, número, bairro..."
                 className="rounded-xl"
                 disabled={!isRegistered}
               />

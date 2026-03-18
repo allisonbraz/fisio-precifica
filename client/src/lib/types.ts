@@ -8,6 +8,7 @@ export interface LeadData {
 export interface PerfilProfissional {
   nome: string;
   cidade: string;
+  endereco: string;
   crefito: string;
   especialidades: string;
   logoUrl: string;

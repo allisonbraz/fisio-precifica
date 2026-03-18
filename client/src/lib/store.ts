@@ -106,6 +106,7 @@ const defaultData: DadosPrecificacao = {
 const defaultPerfil: PerfilProfissional = {
   nome: '',
   cidade: '',
+  endereco: '',
   crefito: '',
   especialidades: '',
   logoUrl: '',
