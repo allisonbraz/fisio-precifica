@@ -111,6 +111,8 @@ const defaultPerfil: PerfilProfissional = {
   logoUrl: '',
   whatsapp: '',
   instagram: '',
+  cpfCnpj: '',
+  nomeEmpresa: '',
 };
 
 // ===== MIGRATION HELPERS =====

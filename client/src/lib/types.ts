@@ -13,6 +13,8 @@ export interface PerfilProfissional {
   logoUrl: string;
   whatsapp: string;
   instagram: string;
+  cpfCnpj: string;
+  nomeEmpresa: string;
 }
 
 export type FrequenciaCusto = 'mensal' | 'anual';

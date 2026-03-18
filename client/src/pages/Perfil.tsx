@@ -18,6 +18,8 @@ import {
   Save,
   Phone,
   Instagram,
+  FileDigit,
+  Building2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -588,6 +590,53 @@ export default function Perfil() {
                 value={perfil.instagram}
                 onChange={(e) => updatePerfil({ instagram: e.target.value })}
                 placeholder="@seuperfil"
+                className="rounded-xl"
+                disabled={!isRegistered}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="flex items-center gap-1.5">
+                <FileDigit className="w-3.5 h-3.5 opacity-60" />
+                CPF ou CNPJ
+              </Label>
+              <Input
+                value={perfil.cpfCnpj}
+                onChange={(e) => {
+                  const digits = e.target.value.replace(/\D/g, '').slice(0, 14);
+                  let formatted = '';
+                  if (digits.length <= 11) {
+                    // CPF: XXX.XXX.XXX-XX
+                    if (digits.length > 0) formatted = digits.slice(0, 3);
+                    if (digits.length > 3) formatted += '.' + digits.slice(3, 6);
+                    if (digits.length > 6) formatted += '.' + digits.slice(6, 9);
+                    if (digits.length > 9) formatted += '-' + digits.slice(9, 11);
+                  } else {
+                    // CNPJ: XX.XXX.XXX/XXXX-XX
+                    formatted = digits.slice(0, 2);
+                    if (digits.length > 2) formatted += '.' + digits.slice(2, 5);
+                    if (digits.length > 5) formatted += '.' + digits.slice(5, 8);
+                    if (digits.length > 8) formatted += '/' + digits.slice(8, 12);
+                    if (digits.length > 12) formatted += '-' + digits.slice(12, 14);
+                  }
+                  updatePerfil({ cpfCnpj: formatted });
+                }}
+                placeholder="000.000.000-00 ou 00.000.000/0000-00"
+                className="rounded-xl"
+                disabled={!isRegistered}
+                maxLength={18}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="flex items-center gap-1.5">
+                <Building2 className="w-3.5 h-3.5 opacity-60" />
+                Clínica / Consultório / Serviço
+              </Label>
+              <Input
+                value={perfil.nomeEmpresa}
+                onChange={(e) => updatePerfil({ nomeEmpresa: e.target.value })}
+                placeholder="Ex: Clínica FisioVida, Studio Pilates..."
                 className="rounded-xl"
                 disabled={!isRegistered}
               />
