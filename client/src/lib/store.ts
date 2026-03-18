@@ -113,6 +113,8 @@ const defaultPerfil: PerfilProfissional = {
   instagram: '',
   cpfCnpj: '',
   nomeEmpresa: '',
+  site: '',
+  outraRedeSocial: '',
 };
 
 // ===== MIGRATION HELPERS =====

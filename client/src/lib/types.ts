@@ -15,6 +15,8 @@ export interface PerfilProfissional {
   instagram: string;
   cpfCnpj: string;
   nomeEmpresa: string;
+  site: string;
+  outraRedeSocial: string;
 }
 
 export type FrequenciaCusto = 'mensal' | 'anual';

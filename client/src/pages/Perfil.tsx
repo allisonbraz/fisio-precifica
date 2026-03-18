@@ -20,6 +20,8 @@ import {
   Instagram,
   FileDigit,
   Building2,
+  Globe,
+  Link,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -637,6 +639,34 @@ export default function Perfil() {
                 value={perfil.nomeEmpresa}
                 onChange={(e) => updatePerfil({ nomeEmpresa: e.target.value })}
                 placeholder="Ex: Clínica FisioVida, Studio Pilates..."
+                className="rounded-xl"
+                disabled={!isRegistered}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="flex items-center gap-1.5">
+                <Globe className="w-3.5 h-3.5 opacity-60" />
+                Site / Landing Page
+              </Label>
+              <Input
+                value={perfil.site}
+                onChange={(e) => updatePerfil({ site: e.target.value })}
+                placeholder="https://seusite.com.br"
+                className="rounded-xl"
+                disabled={!isRegistered}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="flex items-center gap-1.5">
+                <Link className="w-3.5 h-3.5 opacity-60" />
+                Outra rede social
+              </Label>
+              <Input
+                value={perfil.outraRedeSocial}
+                onChange={(e) => updatePerfil({ outraRedeSocial: e.target.value })}
+                placeholder="Link do Facebook, TikTok, LinkedIn..."
                 className="rounded-xl"
                 disabled={!isRegistered}
               />
