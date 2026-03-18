@@ -1,5 +1,6 @@
 import { trpc } from "@/lib/trpc";
 import { supabase } from "@/lib/supabase";
+import { clearAllLocalData } from "@/lib/store";
 import { useCallback, useEffect, useMemo } from "react";
 import { useLocation } from "wouter";
 
@@ -21,6 +22,7 @@ export function useAuth(options?: UseAuthOptions) {
 
   const logout = useCallback(async () => {
     await supabase.auth.signOut();
+    clearAllLocalData();
     utils.auth.me.setData(undefined, null);
     await utils.auth.me.invalidate();
     setLocation("/login");

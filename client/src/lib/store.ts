@@ -315,3 +315,10 @@ export function savePerfil(perfil: PerfilProfissional): void {
   try { localStorage.setItem(PERFIL_KEY, JSON.stringify(perfil)); }
   catch (e) { console.error('Erro ao salvar perfil:', e); }
 }
+
+export function clearAllLocalData(): void {
+  localStorage.removeItem(STORAGE_KEY);
+  localStorage.removeItem(LEAD_KEY);
+  localStorage.removeItem(PERFIL_KEY);
+  localStorage.removeItem(LEADS_LIST_KEY);
+}
