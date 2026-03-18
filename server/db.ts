@@ -149,6 +149,7 @@ export interface UnifiedContact {
   nome: string;
   email: string;
   whatsapp: string;
+  instagram: string;
   source: string;
   hasOAuth: boolean;
   createdAt: Date;
@@ -161,10 +162,20 @@ export async function getUnifiedContacts(limit = 100, offset = 0): Promise<{ ite
   const db = await getDb();
   if (!db) return { items: [], total: 0 };
 
-  const [allLeads, allUsers] = await Promise.all([
+  const [allLeads, allUsers, allPricing] = await Promise.all([
     db.select().from(leads).orderBy(desc(leads.createdAt)).limit(UNIFIED_CONTACTS_MAX),
     db.select().from(users).orderBy(desc(users.createdAt)).limit(UNIFIED_CONTACTS_MAX),
+    db.select({ ownerEmail: pricingData.ownerEmail, data: pricingData.data }).from(pricingData).limit(UNIFIED_CONTACTS_MAX),
   ]);
+
+  // Build profile lookup from pricing_data JSONB (_perfil field)
+  const perfilByEmail = new Map<string, { whatsapp?: string; instagram?: string }>();
+  for (const pd of allPricing) {
+    const perfil = (pd.data as Record<string, unknown>)?._perfil as Record<string, string> | undefined;
+    if (perfil) {
+      perfilByEmail.set(pd.ownerEmail.toLowerCase().trim(), perfil);
+    }
+  }
 
   const userByEmail = new Map<string, typeof allUsers[number]>();
   for (const user of allUsers) {
@@ -180,11 +191,13 @@ export async function getUnifiedContacts(limit = 100, offset = 0): Promise<{ ite
     if (contactMap.has(key)) continue;
 
     const matchedUser = userByEmail.get(key);
+    const perfil = perfilByEmail.get(key);
     contactMap.set(key, {
       id: `lead-${lead.id}`,
       nome: lead.nome || matchedUser?.name || '',
       email: lead.email,
-      whatsapp: lead.whatsapp || matchedUser?.whatsapp || '',
+      whatsapp: lead.whatsapp || matchedUser?.whatsapp || perfil?.whatsapp || '',
+      instagram: perfil?.instagram || '',
       source: matchedUser ? `${lead.source || 'banner'} + login` : (lead.source || 'banner'),
       hasOAuth: !!matchedUser,
       createdAt: lead.createdAt,
@@ -195,11 +208,13 @@ export async function getUnifiedContacts(limit = 100, offset = 0): Promise<{ ite
 
   for (const [key, user] of Array.from(userByEmail.entries())) {
     if (contactMap.has(key)) continue;
+    const perfil = perfilByEmail.get(key);
     contactMap.set(key, {
       id: `user-${user.id}`,
       nome: user.name || '',
       email: user.email!,
-      whatsapp: user.whatsapp || '',
+      whatsapp: user.whatsapp || perfil?.whatsapp || '',
+      instagram: perfil?.instagram || '',
       source: user.source || 'supabase',
       hasOAuth: true,
       createdAt: user.createdAt,
@@ -258,5 +273,35 @@ export async function loadPricingData(ownerEmail: string): Promise<unknown | nul
   } catch (error) {
     console.error("[Database] Failed to load pricing data:", error);
     return null;
+  }
+}
+
+// ===== ADMIN: UPDATE USER EMAIL =====
+
+export async function getUserByEmail(email: string) {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db.select().from(users).where(eq(users.email, email)).limit(1);
+  return result.length > 0 ? result[0] : null;
+}
+
+export async function updateUserEmail(oldEmail: string, newEmail: string): Promise<void> {
+  const db = await getDb();
+  if (!db) throw new Error('Database not available');
+
+  await db.update(users)
+    .set({ email: newEmail, updatedAt: new Date() })
+    .where(eq(users.email, oldEmail));
+
+  await db.update(pricingData)
+    .set({ ownerEmail: newEmail, updatedAt: new Date() })
+    .where(eq(pricingData.ownerEmail, oldEmail));
+
+  // Update leads if exists
+  const leadExists = await db.select({ id: leads.id }).from(leads).where(eq(leads.email, oldEmail)).limit(1);
+  if (leadExists.length > 0) {
+    await db.update(leads)
+      .set({ email: newEmail })
+      .where(eq(leads.email, oldEmail));
   }
 }

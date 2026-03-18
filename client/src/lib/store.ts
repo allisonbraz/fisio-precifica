@@ -109,6 +109,8 @@ const defaultPerfil: PerfilProfissional = {
   crefito: '',
   especialidades: '',
   logoUrl: '',
+  whatsapp: '',
+  instagram: '',
 };
 
 // ===== MIGRATION HELPERS =====

@@ -126,9 +126,19 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (serverResult?.data && !initialSyncDone.current) {
       initialSyncDone.current = true;
-      const serverData = serverResult.data as DadosPrecificacao;
+      const serverData = serverResult.data as Record<string, unknown>;
+      // Extract perfil if synced
+      if (serverData._perfil) {
+        const serverPerfil = serverData._perfil as Partial<PerfilProfissional>;
+        setPerfilState(prev => {
+          const merged = { ...prev, ...serverPerfil };
+          savePerfil(merged);
+          return merged;
+        });
+      }
       if (serverData.custosFixos) {
-        setData(prev => ({ ...prev, ...serverData }));
+        const { _perfil, ...pricingOnly } = serverData;
+        setData(prev => ({ ...prev, ...pricingOnly as unknown as DadosPrecificacao }));
       }
     }
   }, [serverResult]);
@@ -136,12 +146,13 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   // Save to localStorage immediately + debounce save to server
   useEffect(() => {
     saveData(data);
+    savePerfil(perfil);
 
     if (!isAuthenticated) return;
     if (syncTimer.current) clearTimeout(syncTimer.current);
     syncTimer.current = setTimeout(() => {
       saveMutation.mutate(
-        { data: data as unknown as Record<string, unknown> },
+        { data: { ...data, _perfil: perfil } as unknown as Record<string, unknown> },
         { onError: (err) => console.warn('[Sync] Failed to save to server:', err) },
       );
     }, 2000);
@@ -149,7 +160,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     return () => {
       if (syncTimer.current) clearTimeout(syncTimer.current);
     };
-  }, [data, isAuthenticated]);
+  }, [data, perfil, isAuthenticated]);
 
   const updatePerfil = useCallback((updates: Partial<PerfilProfissional>) => {
     setPerfilState(prev => {

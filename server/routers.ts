@@ -1,6 +1,8 @@
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, protectedProcedure, adminProcedure, router } from "./_core/trpc";
-import { createLead, getLeads, getLeadsCount, getLeadsForExport, getUnifiedContacts, getUnifiedContactsForExport, savePricingData, loadPricingData } from "./db";
+import { createLead, getLeads, getLeadsCount, getLeadsForExport, getUnifiedContacts, getUnifiedContactsForExport, savePricingData, loadPricingData, getUserByEmail, updateUserEmail } from "./db";
+import { supabaseAdmin } from "./_core/supabase";
+import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
 export const appRouter = router({
@@ -84,6 +86,42 @@ export const appRouter = router({
       const items = await getUnifiedContactsForExport();
       return { items };
     }),
+
+    changeEmail: adminProcedure
+      .input(z.object({
+        currentEmail: z.string().email(),
+        newEmail: z.string().email(),
+      }))
+      .mutation(async ({ input }) => {
+        if (!supabaseAdmin) {
+          throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'SUPABASE_SERVICE_ROLE_KEY não configurada. Adicione a variável de ambiente.' });
+        }
+
+        const userRecord = await getUserByEmail(input.currentEmail);
+        if (!userRecord) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'Usuário não encontrado com esse e-mail.' });
+        }
+
+        // Check if new email is already in use
+        const existingUser = await getUserByEmail(input.newEmail);
+        if (existingUser) {
+          throw new TRPCError({ code: 'CONFLICT', message: 'Já existe um usuário com esse novo e-mail.' });
+        }
+
+        // Update in Supabase Auth
+        const { error } = await supabaseAdmin.auth.admin.updateUserById(
+          userRecord.supabaseId,
+          { email: input.newEmail, email_confirm: true },
+        );
+        if (error) {
+          throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: `Erro Supabase: ${error.message}` });
+        }
+
+        // Update in all DB tables
+        await updateUserEmail(input.currentEmail, input.newEmail);
+
+        return { success: true };
+      }),
   }),
 });
 

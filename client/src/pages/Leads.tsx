@@ -20,9 +20,13 @@ import {
   UserCheck,
   Globe,
   LogIn,
+  Instagram,
+  Pencil,
+  X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import PageHeader from '@/components/PageHeader';
 import StatCard from '@/components/StatCard';
 import { trpc } from '@/lib/trpc';
@@ -44,7 +48,7 @@ function SourceBadge({ source, hasOAuth }: { source: string; hasOAuth: boolean }
     return (
       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-sage/20 text-sage-dark">
         <LogIn className="w-3 h-3" />
-        Login OAuth
+        Login
       </span>
     );
   }
@@ -56,11 +60,81 @@ function SourceBadge({ source, hasOAuth }: { source: string; hasOAuth: boolean }
   );
 }
 
+function ChangeEmailModal({
+  currentEmail,
+  onClose,
+  onSuccess,
+}: {
+  currentEmail: string;
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const [newEmail, setNewEmail] = useState('');
+  const changeEmailMutation = trpc.contacts.changeEmail.useMutation({
+    onSuccess: () => {
+      toast.success(`E-mail alterado para ${newEmail}`);
+      onSuccess();
+      onClose();
+    },
+    onError: (err) => {
+      toast.error(err.message);
+    },
+  });
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
+      <div
+        className="bg-card rounded-2xl border border-border p-6 w-full max-w-md mx-4 space-y-4"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between">
+          <h3 className="font-heading font-semibold text-foreground">Alterar E-mail</h3>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="space-y-3">
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">E-mail atual</Label>
+            <Input value={currentEmail} disabled className="rounded-xl bg-muted/30" />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">Novo e-mail</Label>
+            <Input
+              type="email"
+              value={newEmail}
+              onChange={(e) => setNewEmail(e.target.value)}
+              placeholder="novo@email.com"
+              className="rounded-xl"
+              autoFocus
+            />
+          </div>
+        </div>
+
+        <div className="flex gap-2 justify-end">
+          <Button variant="outline" onClick={onClose} className="rounded-xl">
+            Cancelar
+          </Button>
+          <Button
+            onClick={() => changeEmailMutation.mutate({ currentEmail, newEmail })}
+            disabled={!newEmail || newEmail === currentEmail || changeEmailMutation.isPending}
+            className="rounded-xl"
+          >
+            {changeEmailMutation.isPending ? 'Alterando...' : 'Confirmar'}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Leads() {
   const { user, isAuthenticated, loading: authLoading } = useAuth();
   const [page, setPage] = useState(0);
   const [search, setSearch] = useState('');
   const [sourceFilter, setSourceFilter] = useState<'all' | 'banner' | 'oauth' | 'both'>('all');
+  const [editingEmail, setEditingEmail] = useState<string | null>(null);
 
   const { data: contactsData, isLoading, refetch } = trpc.contacts.list.useQuery(
     { limit: 500, offset: 0 },
@@ -87,7 +161,8 @@ export default function Leads() {
       items = items.filter(
         c => c.nome.toLowerCase().includes(q) ||
              c.email.toLowerCase().includes(q) ||
-             c.whatsapp.includes(q)
+             c.whatsapp.includes(q) ||
+             (c.instagram && c.instagram.toLowerCase().includes(q))
       );
     }
 
@@ -113,11 +188,12 @@ export default function Leads() {
       toast.error('Nenhum contato para exportar');
       return;
     }
-    const headers = ['Nome', 'Email', 'WhatsApp', 'Origem', 'Tem Login', 'Data de Cadastro', 'Último Login'];
+    const headers = ['Nome', 'Email', 'WhatsApp', 'Instagram', 'Origem', 'Tem Login', 'Data de Cadastro', 'Último Login'];
     const rows = contactsData.items.map(c => [
       c.nome,
       c.email,
       c.whatsapp,
+      c.instagram || '',
       c.source,
       c.hasOAuth ? 'Sim' : 'Não',
       new Date(c.createdAt).toLocaleString('pt-BR'),
@@ -195,7 +271,7 @@ export default function Leads() {
     <div className="space-y-6">
       <PageHeader
         title="Central de Contatos"
-        description="Todos os contatos unificados — cadastros do banner e logins OAuth em um só lugar"
+        description="Todos os contatos unificados — cadastros e logins em um só lugar"
         icon={Users}
         action={
           <div className="flex gap-2">
@@ -232,7 +308,7 @@ export default function Leads() {
         <StatCard
           title="Com Login"
           value={String(stats.withOAuth)}
-          subtitle="Fizeram login OAuth"
+          subtitle="Fizeram login no app"
           icon={LogIn}
           variant="success"
         />
@@ -252,34 +328,6 @@ export default function Leads() {
         />
       </div>
 
-      {/* Explanation Card */}
-      <div className="bg-card rounded-2xl border border-border p-5">
-        <h3 className="font-heading font-semibold text-sm text-foreground mb-3">Como funciona a unificação</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs text-muted-foreground">
-          <div className="flex items-start gap-2">
-            <Globe className="w-4 h-4 text-terracotta mt-0.5 shrink-0" />
-            <div>
-              <p className="font-medium text-foreground">Banner</p>
-              <p>Pessoa preencheu nome, e-mail e WhatsApp no banner de cadastro do app</p>
-            </div>
-          </div>
-          <div className="flex items-start gap-2">
-            <LogIn className="w-4 h-4 text-sage-dark mt-0.5 shrink-0" />
-            <div>
-              <p className="font-medium text-foreground">Login OAuth</p>
-              <p>Pessoa fez login com conta Manus — nome e e-mail capturados automaticamente</p>
-            </div>
-          </div>
-          <div className="flex items-start gap-2">
-            <UserCheck className="w-4 h-4 text-gold-dark mt-0.5 shrink-0" />
-            <div>
-              <p className="font-medium text-foreground">Banner + Login</p>
-              <p>Pessoa fez ambos — dados unificados pelo e-mail em um único registro</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
@@ -287,7 +335,7 @@ export default function Leads() {
           <Input
             value={search}
             onChange={e => { setSearch(e.target.value); setPage(0); }}
-            placeholder="Buscar por nome, e-mail ou WhatsApp..."
+            placeholder="Buscar por nome, e-mail, WhatsApp ou Instagram..."
             className="pl-10 rounded-xl"
           />
         </div>
@@ -330,7 +378,7 @@ export default function Leads() {
           <>
             {/* Mobile card layout */}
             <div className="space-y-3 p-4 sm:hidden">
-              {paginatedContacts.map((contact, idx) => (
+              {paginatedContacts.map((contact) => (
                 <div key={contact.id} className="bg-muted/20 rounded-xl p-4 space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium text-foreground">{contact.nome || '—'}</span>
@@ -340,6 +388,9 @@ export default function Leads() {
                     <div className="flex items-center gap-2 text-muted-foreground">
                       <Mail className="w-3.5 h-3.5 flex-shrink-0" />
                       <a href={`mailto:${contact.email}`} className="text-primary hover:underline truncate">{contact.email}</a>
+                      <button onClick={() => setEditingEmail(contact.email)} className="text-muted-foreground/50 hover:text-primary">
+                        <Pencil className="w-3 h-3" />
+                      </button>
                     </div>
                     {contact.whatsapp && (
                       <div className="flex items-center gap-2 text-muted-foreground">
@@ -351,6 +402,19 @@ export default function Leads() {
                           className="text-sage-dark hover:underline"
                         >
                           {contact.whatsapp}
+                        </a>
+                      </div>
+                    )}
+                    {contact.instagram && (
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <Instagram className="w-3.5 h-3.5 flex-shrink-0" />
+                        <a
+                          href={`https://instagram.com/${contact.instagram.replace(/^@/, '')}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-primary hover:underline"
+                        >
+                          {contact.instagram}
                         </a>
                       </div>
                     )}
@@ -375,6 +439,7 @@ export default function Leads() {
                     <th scope="col" className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Nome</th>
                     <th scope="col" className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">E-mail</th>
                     <th scope="col" className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">WhatsApp</th>
+                    <th scope="col" className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Instagram</th>
                     <th scope="col" className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Origem</th>
                     <th scope="col" className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Data</th>
                   </tr>
@@ -389,9 +454,18 @@ export default function Leads() {
                         <span className="text-sm font-medium text-foreground">{contact.nome || '—'}</span>
                       </td>
                       <td className="px-4 py-3">
-                        <a href={`mailto:${contact.email}`} className="text-sm text-primary hover:underline">
-                          {contact.email}
-                        </a>
+                        <div className="flex items-center gap-1.5">
+                          <a href={`mailto:${contact.email}`} className="text-sm text-primary hover:underline">
+                            {contact.email}
+                          </a>
+                          <button
+                            onClick={() => setEditingEmail(contact.email)}
+                            className="text-muted-foreground/40 hover:text-primary transition-colors"
+                            title="Alterar e-mail"
+                          >
+                            <Pencil className="w-3 h-3" />
+                          </button>
+                        </div>
                       </td>
                       <td className="px-4 py-3">
                         {contact.whatsapp ? (
@@ -402,6 +476,20 @@ export default function Leads() {
                             className="text-sm text-sage-dark hover:underline"
                           >
                             {contact.whatsapp}
+                          </a>
+                        ) : (
+                          <span className="text-sm text-muted-foreground/50">—</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        {contact.instagram ? (
+                          <a
+                            href={`https://instagram.com/${contact.instagram.replace(/^@/, '')}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm text-primary hover:underline"
+                          >
+                            {contact.instagram}
                           </a>
                         ) : (
                           <span className="text-sm text-muted-foreground/50">—</span>
@@ -462,6 +550,15 @@ export default function Leads() {
           </>
         )}
       </motion.div>
+
+      {/* Change Email Modal */}
+      {editingEmail && (
+        <ChangeEmailModal
+          currentEmail={editingEmail}
+          onClose={() => setEditingEmail(null)}
+          onSuccess={() => refetch()}
+        />
+      )}
     </div>
   );
 }

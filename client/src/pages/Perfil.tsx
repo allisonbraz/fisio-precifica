@@ -16,6 +16,8 @@ import {
   Download,
   FileText,
   Save,
+  Phone,
+  Instagram,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -549,6 +551,34 @@ export default function Perfil() {
                 placeholder="Ex: Ortopedia, Pilates, RPG, Fisioterapia Esportiva..."
                 className="rounded-xl resize-none"
                 rows={3}
+                disabled={!isRegistered}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="flex items-center gap-1.5">
+                <Phone className="w-3.5 h-3.5 opacity-60" />
+                WhatsApp
+              </Label>
+              <Input
+                value={perfil.whatsapp}
+                onChange={(e) => updatePerfil({ whatsapp: e.target.value })}
+                placeholder="(11) 99999-9999"
+                className="rounded-xl"
+                disabled={!isRegistered}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="flex items-center gap-1.5">
+                <Instagram className="w-3.5 h-3.5 opacity-60" />
+                Instagram
+              </Label>
+              <Input
+                value={perfil.instagram}
+                onChange={(e) => updatePerfil({ instagram: e.target.value })}
+                placeholder="@seuperfil"
+                className="rounded-xl"
                 disabled={!isRegistered}
               />
             </div>

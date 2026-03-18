@@ -11,6 +11,8 @@ export interface PerfilProfissional {
   crefito: string;
   especialidades: string;
   logoUrl: string;
+  whatsapp: string;
+  instagram: string;
 }
 
 export type FrequenciaCusto = 'mensal' | 'anual';
