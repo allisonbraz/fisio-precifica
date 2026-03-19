@@ -160,7 +160,7 @@ export default function Relatorios() {
       >
         <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
         <p className="text-xs text-foreground/80">
-          <strong>Importante:</strong> Os valores registrados aqui são para acompanhamento pessoal e não substituem contabilidade profissional. Os cálculos de lucro não incluem impostos — consulte seu contador para apuração fiscal.
+          <strong>Importante:</strong> Os valores registrados aqui são para acompanhamento pessoal e não substituem contabilidade profissional. Os cálculos de impostos são estimativas baseadas no regime tributário selecionado — consulte seu contador para apuração fiscal exata.
         </p>
       </motion.div>
 

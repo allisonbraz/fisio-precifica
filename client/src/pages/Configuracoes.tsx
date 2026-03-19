@@ -109,9 +109,9 @@ export default function Configuracoes() {
         <div className="flex items-start gap-3 p-4 rounded-xl bg-primary/5 border border-primary/10">
           <Info className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
           <div className="text-sm text-foreground">
-            <p className="font-medium">Seus dados ficam salvos localmente</p>
+            <p className="font-medium">Seus dados ficam salvos na sua conta</p>
             <p className="text-muted-foreground mt-1">
-              Todos os dados são armazenados no seu navegador (localStorage). Recomendamos fazer backup regularmente exportando seus dados.
+              Quando você está logado, seus dados são sincronizados automaticamente com o servidor. Também ficam salvos localmente no navegador para acesso rápido. Recomendamos fazer backup regularmente exportando seus dados.
             </p>
           </div>
         </div>
