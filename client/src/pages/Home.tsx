@@ -25,6 +25,8 @@ import {
   Briefcase,
   FileText,
   Calendar,
+  Circle,
+  CheckCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import StatCard from '@/components/StatCard';
@@ -73,8 +75,73 @@ export default function Home() {
 
   const hasData = metrics.custoTotalMensal > 0;
 
+  // Progress tracker steps
+  const progressSteps = useMemo(() => {
+    const hasCustos = data.custosFixos.some(c => c.valor > 0) || data.custosVariaveis.some(c => c.valor > 0);
+    const hasMargem = data.margemLucro > 0;
+    const hasPreco = data.precoDefinido > 0;
+    const hasServico = data.tiposServico.length > 0;
+
+    return [
+      { label: 'Cadastrar seus custos', done: hasCustos, href: '/custos' },
+      { label: 'Definir margem de lucro', done: hasMargem, href: '/precificacao' },
+      { label: 'Calcular preço por sessão', done: hasPreco, href: '/precificacao' },
+      { label: 'Criar tipos de serviço', done: hasServico, href: '/servicos' },
+    ];
+  }, [data]);
+
+  const completedCount = progressSteps.filter(s => s.done).length;
+  const allDone = completedCount === progressSteps.length;
+  const progressPercent = (completedCount / progressSteps.length) * 100;
+
   return (
     <div className="space-y-6">
+      {/* Progress Tracker */}
+      {!allDone && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-card rounded-2xl border border-border p-5 space-y-4"
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-heading font-semibold text-foreground">Seu progresso</h3>
+              <p className="text-xs text-muted-foreground mt-0.5">{completedCount} de {progressSteps.length} etapas concluídas</p>
+            </div>
+            <span className="text-sm font-mono font-bold text-primary">{progressPercent.toFixed(0)}%</span>
+          </div>
+          {/* Progress bar */}
+          <div className="w-full h-2 bg-muted/50 rounded-full overflow-hidden">
+            <motion.div
+              initial={{ width: 0 }}
+              animate={{ width: `${progressPercent}%` }}
+              transition={{ duration: 0.8, ease: 'easeOut' }}
+              className="h-full bg-gradient-to-r from-terracotta to-sage rounded-full"
+            />
+          </div>
+          {/* Steps */}
+          <div className="space-y-2">
+            {progressSteps.map((step, i) => (
+              <Link key={i} href={step.href}>
+                <div className={`flex items-center gap-3 px-3 py-2 rounded-xl transition-colors cursor-pointer ${
+                  step.done
+                    ? 'text-muted-foreground'
+                    : 'text-foreground hover:bg-muted/50'
+                }`}>
+                  {step.done ? (
+                    <CheckCircle className="w-4 h-4 text-sage-dark flex-shrink-0" />
+                  ) : (
+                    <Circle className="w-4 h-4 text-muted-foreground/40 flex-shrink-0" />
+                  )}
+                  <span className={`text-sm ${step.done ? 'line-through' : 'font-medium'}`}>{step.label}</span>
+                  {!step.done && <ArrowRight className="w-3.5 h-3.5 ml-auto text-muted-foreground/40" />}
+                </div>
+              </Link>
+            ))}
+          </div>
+        </motion.div>
+      )}
+
       {/* Hero Banner */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}

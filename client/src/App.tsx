@@ -10,6 +10,7 @@ import Layout from "./components/Layout";
 import LeadGate from "./components/LeadGate";
 import OnboardingWizard from "./components/OnboardingWizard";
 import { useData } from "./contexts/DataContext";
+import { useAuth } from "./_core/hooks/useAuth";
 import Home from "./pages/Home";
 import Custos from "./pages/Custos";
 import Precificacao from "./pages/Precificacao";
@@ -22,32 +23,39 @@ import Perfil from "./pages/Perfil";
 import Leads from "./pages/Leads";
 import Reservas from "./pages/Reservas";
 import Login from "./pages/Login";
+import Landing from "./pages/Landing";
 
 function Router() {
   const { isRegistered } = useData();
+  const { user, loading } = useAuth();
+
   return (
     <Switch>
       <Route path="/login" component={Login} />
       <Route>
-    <Layout>
-      <Switch>
-        <Route path="/" component={Home} />
-        <Route path="/custos" component={Custos} />
-        <Route path="/precificacao" component={Precificacao} />
-        <Route path="/servicos" component={Servicos} />
-        <Route path="/simulacao" component={Simulacao} />
-        <Route path="/indicadores" component={Indicadores} />
-        <Route path="/relatorios" component={Relatorios} />
-        <Route path="/reservas" component={Reservas} />
-        <Route path="/configuracoes" component={Configuracoes} />
-        <Route path="/perfil" component={Perfil} />
-        <Route path="/admin/leads" component={Leads} />
-        <Route path="/404" component={NotFound} />
-        <Route component={NotFound} />
-      </Switch>
-      <LeadGate />
-      <OnboardingWizard isRegistered={isRegistered} />
-    </Layout>
+        {!loading && !user ? (
+          <Landing />
+        ) : (
+          <Layout>
+            <Switch>
+              <Route path="/" component={Home} />
+              <Route path="/custos" component={Custos} />
+              <Route path="/precificacao" component={Precificacao} />
+              <Route path="/servicos" component={Servicos} />
+              <Route path="/simulacao" component={Simulacao} />
+              <Route path="/indicadores" component={Indicadores} />
+              <Route path="/relatorios" component={Relatorios} />
+              <Route path="/reservas" component={Reservas} />
+              <Route path="/configuracoes" component={Configuracoes} />
+              <Route path="/perfil" component={Perfil} />
+              <Route path="/admin/leads" component={Leads} />
+              <Route path="/404" component={NotFound} />
+              <Route component={NotFound} />
+            </Switch>
+            <LeadGate />
+            <OnboardingWizard isRegistered={isRegistered} />
+          </Layout>
+        )}
       </Route>
     </Switch>
   );

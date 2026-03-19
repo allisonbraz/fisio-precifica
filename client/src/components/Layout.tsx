@@ -28,16 +28,22 @@ import { useAuth } from '@/_core/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 
 
-const navItems = [
-  { path: '/', label: 'Início', icon: Home },
-  { path: '/perfil', label: 'Meu Perfil', icon: UserCircle },
+const essentialItems = [
+  { path: '/', label: 'Painel', icon: Home },
   { path: '/custos', label: 'Custos', icon: DollarSign },
   { path: '/precificacao', label: 'Precificação', icon: Calculator },
+  { path: '/indicadores', label: 'Indicadores', icon: Target },
+];
+
+const toolItems = [
   { path: '/servicos', label: 'Serviços', icon: Briefcase },
   { path: '/simulacao', label: 'Simulação', icon: TrendingUp },
-  { path: '/indicadores', label: 'Indicadores', icon: Target },
   { path: '/reservas', label: 'Reservas', icon: ShieldCheck },
   { path: '/relatorios', label: 'Relatórios', icon: FileText },
+];
+
+const bottomItems = [
+  { path: '/perfil', label: 'Meu Perfil', icon: UserCircle },
   { path: '/configuracoes', label: 'Configurações', icon: Settings },
 ];
 
@@ -89,65 +95,137 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
-          {navItems.map((item) => {
-            const isActive = location === item.path || (item.path !== '/' && location.startsWith(item.path));
-            const Icon = item.icon;
-            return (
-              <Link key={item.path} href={item.path} onClick={() => setSidebarOpen(false)}>
-                <motion.div
-                  whileHover={{ x: 4 }}
-                  whileTap={{ scale: 0.98 }}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-1 ${
-                    isActive
-                      ? 'bg-primary/10 text-primary'
-                      : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                  }`}
-                >
-                  <Icon className="w-[18px] h-[18px]" />
-                  <span>{item.label}</span>
-                  {isActive && (
-                    <motion.div
-                      layoutId="activeIndicator"
-                      className="ml-auto w-1.5 h-1.5 rounded-full bg-primary"
-                    />
-                  )}
-                </motion.div>
-              </Link>
-            );
-          })}
+        <nav className="flex-1 p-3 overflow-y-auto">
+          {/* Essencial */}
+          <div className="mb-1 px-3">
+            <p className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-widest">Essencial</p>
+          </div>
+          <div className="space-y-1 mb-3">
+            {essentialItems.map((item) => {
+              const isActive = location === item.path || (item.path !== '/' && location.startsWith(item.path));
+              const Icon = item.icon;
+              return (
+                <Link key={item.path} href={item.path} onClick={() => setSidebarOpen(false)}>
+                  <motion.div
+                    whileHover={{ x: 4 }}
+                    whileTap={{ scale: 0.98 }}
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-1 ${
+                      isActive
+                        ? 'bg-primary/10 text-primary'
+                        : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                    }`}
+                  >
+                    <Icon className="w-[18px] h-[18px]" />
+                    <span>{item.label}</span>
+                    {isActive && (
+                      <motion.div
+                        layoutId="activeIndicator"
+                        className="ml-auto w-1.5 h-1.5 rounded-full bg-primary"
+                      />
+                    )}
+                  </motion.div>
+                </Link>
+              );
+            })}
+          </div>
+
+          {/* Ferramentas */}
+          <div className="mb-1 px-3">
+            <p className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-widest">Ferramentas</p>
+          </div>
+          <div className="space-y-1 mb-3">
+            {toolItems.map((item) => {
+              const isActive = location === item.path || (item.path !== '/' && location.startsWith(item.path));
+              const Icon = item.icon;
+              return (
+                <Link key={item.path} href={item.path} onClick={() => setSidebarOpen(false)}>
+                  <motion.div
+                    whileHover={{ x: 4 }}
+                    whileTap={{ scale: 0.98 }}
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-1 ${
+                      isActive
+                        ? 'bg-primary/10 text-primary'
+                        : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                    }`}
+                  >
+                    <Icon className="w-[18px] h-[18px]" />
+                    <span>{item.label}</span>
+                    {isActive && (
+                      <motion.div
+                        layoutId="activeIndicator"
+                        className="ml-auto w-1.5 h-1.5 rounded-full bg-primary"
+                      />
+                    )}
+                  </motion.div>
+                </Link>
+              );
+            })}
+          </div>
+
+          {/* Perfil & Config */}
+          <div className="space-y-1 border-t border-border/50 pt-3">
+            {bottomItems.map((item) => {
+              const isActive = location === item.path || (item.path !== '/' && location.startsWith(item.path));
+              const Icon = item.icon;
+              return (
+                <Link key={item.path} href={item.path} onClick={() => setSidebarOpen(false)}>
+                  <motion.div
+                    whileHover={{ x: 4 }}
+                    whileTap={{ scale: 0.98 }}
+                    className={`flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-1 ${
+                      isActive
+                        ? 'bg-primary/10 text-primary'
+                        : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                    }`}
+                  >
+                    <Icon className="w-4 h-4" />
+                    <span>{item.label}</span>
+                    {isActive && (
+                      <motion.div
+                        layoutId="activeIndicator"
+                        className="ml-auto w-1.5 h-1.5 rounded-full bg-primary"
+                      />
+                    )}
+                  </motion.div>
+                </Link>
+              );
+            })}
+          </div>
+
           {/* Admin section */}
           {isAdmin && (
             <>
-              <div className="mt-4 mb-2 px-3">
+              <div className="mt-3 mb-1 px-3">
                 <p className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-widest">Admin</p>
               </div>
-              {adminNavItems.map((item) => {
-                const isActive = location === item.path || location.startsWith(item.path);
-                const Icon = item.icon;
-                return (
-                  <Link key={item.path} href={item.path} onClick={() => setSidebarOpen(false)}>
-                    <motion.div
-                      whileHover={{ x: 4 }}
-                      whileTap={{ scale: 0.98 }}
-                      className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
-                        isActive
-                          ? 'bg-primary/10 text-primary'
-                          : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                      }`}
-                    >
-                      <Icon className="w-[18px] h-[18px]" />
-                      <span>{item.label}</span>
-                      {isActive && (
-                        <motion.div
-                          layoutId="activeIndicator"
-                          className="ml-auto w-1.5 h-1.5 rounded-full bg-primary"
-                        />
-                      )}
-                    </motion.div>
-                  </Link>
-                );
-              })}
+              <div className="space-y-1">
+                {adminNavItems.map((item) => {
+                  const isActive = location === item.path || location.startsWith(item.path);
+                  const Icon = item.icon;
+                  return (
+                    <Link key={item.path} href={item.path} onClick={() => setSidebarOpen(false)}>
+                      <motion.div
+                        whileHover={{ x: 4 }}
+                        whileTap={{ scale: 0.98 }}
+                        className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
+                          isActive
+                            ? 'bg-primary/10 text-primary'
+                            : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                        }`}
+                      >
+                        <Icon className="w-[18px] h-[18px]" />
+                        <span>{item.label}</span>
+                        {isActive && (
+                          <motion.div
+                            layoutId="activeIndicator"
+                            className="ml-auto w-1.5 h-1.5 rounded-full bg-primary"
+                          />
+                        )}
+                      </motion.div>
+                    </Link>
+                  );
+                })}
+              </div>
             </>
           )}
         </nav>

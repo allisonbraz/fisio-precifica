@@ -54,7 +54,7 @@ const defaultDepreciacao: CustoFixo[] = [
 
 const defaultCustosVariaveis: CustoVariavel[] = [
   { id: '1', nome: 'Material de Consumo (gel, eletrodos, etc.)', valor: 0, frequencia: 'mensal', observacao: '', descricao: 'Materiais usados durante as sessões. Ex: gel condutor, eletrodos, faixas elásticas. R$ 200/mês.' },
-  { id: '2', nome: 'Material descartável por sessão', valor: 0, frequencia: 'mensal', observacao: '', descricao: 'Lençol descartável, luvas, papel toalha. Ex: R$ 2 a R$ 5 por sessão × número de sessões.' },
+  { id: '2', nome: 'Materiais de uso único por sessão', valor: 0, frequencia: 'mensal', observacao: '', descricao: 'Lençol descartável, luvas, papel toalha. Informe o valor TOTAL MENSAL (custo por sessão × nº de sessões). Ex: R$ 3/sessão × 80 sessões = R$ 240/mês.' },
   { id: '3', nome: 'Taxa de cartão de crédito/débito', valor: 0, frequencia: 'mensal', observacao: '', descricao: 'Taxas cobradas pela maquininha. Ex: 2% a 5% do faturamento mensal com cartão.' },
   { id: '4', nome: 'Água e esgoto', valor: 0, frequencia: 'mensal', observacao: '', descricao: 'Conta de água do consultório. Ex: R$ 80 a R$ 150/mês.' },
   { id: '5', nome: 'Energia Elétrica', valor: 0, frequencia: 'mensal', observacao: '', descricao: 'Conta de luz (ar-condicionado, equipamentos). Ex: R$ 200 a R$ 500/mês.' },
@@ -210,6 +210,9 @@ export function loadData(): DadosPrecificacao {
 
       if (parsed.custosVariaveis) {
         parsed.custosVariaveis = parsed.custosVariaveis.map((c: any) => {
+          if (c.id === '2' && c.nome === 'Material descartável por sessão') {
+            c.nome = 'Materiais de uso único por sessão';
+          }
           const defaultById = defaultCustosVariaveis.find(d => d.id === c.id);
           const defaultByName = findDefaultByName(c.nome, defaultCustosVariaveis);
           const matched = defaultById || defaultByName;
