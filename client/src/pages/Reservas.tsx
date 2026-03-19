@@ -5,6 +5,7 @@
  */
 
 import { useState, useMemo } from 'react';
+import ProgressGate from '@/components/ProgressGate';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ShieldCheck,
@@ -158,6 +159,8 @@ export default function Reservas() {
           </AlertDialog>
         }
       />
+
+      <ProgressGate requiredLabel="Reservas" />
 
       {/* Educational info box */}
       <motion.div

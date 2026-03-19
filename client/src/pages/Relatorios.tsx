@@ -5,6 +5,7 @@
  */
 
 import { useState, useMemo } from 'react';
+import ProgressGate from '@/components/ProgressGate';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   FileText,
@@ -148,6 +149,8 @@ export default function Relatorios() {
           </Button>
         }
       />
+
+      <ProgressGate requiredLabel="Relatórios" />
 
       {/* Disclaimer */}
       <motion.div

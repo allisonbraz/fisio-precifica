@@ -6,6 +6,7 @@
  */
 
 import { useState } from 'react';
+import ProgressGate from '@/components/ProgressGate';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Briefcase,
@@ -172,6 +173,8 @@ export default function Servicos() {
         description="Configure tipos de serviço e planos de tratamento com desconto para fidelizar pacientes"
         icon={Briefcase}
       />
+
+      <ProgressGate requiredLabel="Serviços" />
 
       <Tabs defaultValue="servicos" className="space-y-4">
         <TabsList className="bg-muted/50 rounded-xl p-1">

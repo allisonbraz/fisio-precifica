@@ -6,6 +6,7 @@
  */
 
 import { useMemo, useState } from 'react';
+import ProgressGate from '@/components/ProgressGate';
 import { motion } from 'framer-motion';
 import {
   TrendingUp,
@@ -183,6 +184,8 @@ export default function Simulacao() {
         description="Teste diferentes preços e taxas de ocupação para ver o impacto no seu faturamento"
         icon={TrendingUp}
       />
+
+      <ProgressGate requiredLabel="Simulação" />
 
       {/* Custom Price Simulator */}
       <motion.div
