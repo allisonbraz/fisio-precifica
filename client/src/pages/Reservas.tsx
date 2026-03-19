@@ -57,7 +57,11 @@ import {
 } from '@/lib/store';
 import { toast } from 'sonner';
 
-export default function Reservas() {
+interface ReservasProps {
+  asTab?: boolean;
+}
+
+export default function Reservas({ asTab = false }: ReservasProps) {
   const {
     data,
     isRegistered,
@@ -128,39 +132,43 @@ export default function Reservas() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Reservas Estratégicas"
-        description="Valores guardados por decisão estratégica para crescer, se proteger e investir."
-        icon={ShieldCheck}
-        action={
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="outline" size="sm" className="rounded-xl gap-1.5 text-destructive border-destructive/30 hover:bg-destructive/5" disabled={!isRegistered}>
-                <RotateCcw className="w-4 h-4" /> Zerar tudo
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent className="rounded-2xl">
-              <AlertDialogHeader>
-                <AlertDialogTitle className="font-heading">Zerar todas as reservas?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Isso vai zerar os valores de todas as reservas estratégicas. Os itens não serão excluídos.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel className="rounded-xl">Cancelar</AlertDialogCancel>
-                <AlertDialogAction
-                  onClick={() => { zerarTodasReservas(); toast.success('Reservas zeradas!'); }}
-                  className="rounded-xl bg-destructive hover:bg-destructive/90"
-                >
-                  Zerar tudo
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        }
-      />
+      {!asTab && (
+        <>
+          <PageHeader
+            title="Reservas Estratégicas"
+            description="Valores guardados por decisão estratégica para crescer, se proteger e investir."
+            icon={ShieldCheck}
+            action={
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="outline" size="sm" className="rounded-xl gap-1.5 text-destructive border-destructive/30 hover:bg-destructive/5" disabled={!isRegistered}>
+                    <RotateCcw className="w-4 h-4" /> Zerar tudo
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent className="rounded-2xl">
+                  <AlertDialogHeader>
+                    <AlertDialogTitle className="font-heading">Zerar todas as reservas?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Isso vai zerar os valores de todas as reservas estratégicas. Os itens não serão excluídos.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel className="rounded-xl">Cancelar</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={() => { zerarTodasReservas(); toast.success('Reservas zeradas!'); }}
+                      className="rounded-xl bg-destructive hover:bg-destructive/90"
+                    >
+                      Zerar tudo
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            }
+          />
 
-      <ProgressGate requiredLabel="Reservas" />
+          <ProgressGate requiredLabel="Reservas" />
+        </>
+      )}
 
       {/* Educational info box */}
       <motion.div

@@ -17,10 +17,12 @@ import {
   CalendarDays,
   HelpCircle,
   ShieldAlert,
+  ShieldCheck,
   TrendingDown,
   AlertTriangle,
   Lock,
 } from 'lucide-react';
+import Reservas from '@/pages/Reservas';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
@@ -457,7 +459,7 @@ export default function Custos() {
     <div className="space-y-6">
       <PageHeader
         title="Gestão de Custos"
-        description="Custos operacionais obrigatórios e depreciação. Reservas estratégicas ficam em aba separada."
+        description="Custos operacionais, depreciação, variáveis e reservas estratégicas."
         icon={DollarSign}
         action={
           <AlertDialog>
@@ -576,6 +578,10 @@ export default function Custos() {
           </TabsTrigger>
           <TabsTrigger value="variaveis" className="rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm text-xs sm:text-sm">
             Variáveis ({data.custosVariaveis.length})
+          </TabsTrigger>
+          <TabsTrigger value="reservas" className="rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm text-xs sm:text-sm">
+            <ShieldCheck className="w-3.5 h-3.5 mr-1 hidden sm:inline" />
+            Reservas ({data.reservasEstrategicas.length})
           </TabsTrigger>
         </TabsList>
 
@@ -711,6 +717,11 @@ export default function Custos() {
             </div>
           </div>
         </TabsContent>
+
+        {/* Reservas Estratégicas */}
+        <TabsContent value="reservas">
+          <Reservas asTab />
+        </TabsContent>
       </Tabs>
 
       {/* Add Dialog */}
@@ -792,7 +803,7 @@ export default function Custos() {
                 className="rounded-xl h-auto py-3 flex flex-col items-center gap-1 border-sage/30 hover:bg-sage/5"
                 onClick={() => {
                   setSmartQuestionOpen(false);
-                  toast.info('Adicione este item na aba "Reservas Estratégicas" no menu lateral');
+                  toast.info('Adicione este item na aba "Reservas" acima');
                   resetDialog();
                 }}
               >

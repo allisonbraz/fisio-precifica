@@ -21,7 +21,6 @@ import Relatorios from "./pages/Relatorios";
 import Configuracoes from "./pages/Configuracoes";
 import Perfil from "./pages/Perfil";
 import Leads from "./pages/Leads";
-import Reservas from "./pages/Reservas";
 import Login from "./pages/Login";
 import Landing from "./pages/Landing";
 
@@ -45,7 +44,7 @@ function Router() {
               <Route path="/simulacao" component={Simulacao} />
               <Route path="/indicadores" component={Indicadores} />
               <Route path="/relatorios" component={Relatorios} />
-              <Route path="/reservas" component={Reservas} />
+              <Route path="/reservas">{() => { window.location.replace('/custos'); return null; }}</Route>
               <Route path="/configuracoes" component={Configuracoes} />
               <Route path="/perfil" component={Perfil} />
               <Route path="/admin/leads" component={Leads} />

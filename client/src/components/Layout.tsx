@@ -20,7 +20,6 @@ import {
   UserCircle,
   ClipboardList,
   Users,
-  ShieldCheck,
   LogIn,
   LogOut,
 } from 'lucide-react';
@@ -38,7 +37,6 @@ const essentialItems = [
 const toolItems = [
   { path: '/servicos', label: 'Serviços', icon: Briefcase },
   { path: '/simulacao', label: 'Simulação', icon: TrendingUp },
-  { path: '/reservas', label: 'Reservas', icon: ShieldCheck },
   { path: '/relatorios', label: 'Relatórios', icon: FileText },
 ];
 
