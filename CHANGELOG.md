@@ -5,6 +5,41 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
 
 ---
 
+## [2.1.0] — 2026-03-18
+
+### Adicionado
+- **Landing page com Calculadora Rápida** — Visitantes não logados veem uma landing page com proposta de valor, seções "Como funciona" e "Benefícios", e uma calculadora que calcula o preço mínimo por sessão em 3 campos (custo mensal, sessões, margem) sem precisar criar conta.
+- **Progresso guiado no dashboard** — Barra de progresso animada com 4 etapas (custos, margem, preço, serviços) que desaparece quando tudo está preenchido. Substitui o wizard modal descartável.
+- **Gate progressivo nas páginas avançadas** — Banner contextual em Serviços, Simulação, Reservas e Relatórios que orienta o usuário a preencher custos e precificação primeiro. Não bloqueia — apenas guia.
+- **Reservas como 4ª aba em Custos** — Reservas Estratégicas agora é uma aba dentro da página de Custos (Operacionais / Depreciação / Variáveis / Reservas), reduzindo a navegação.
+
+### Alterado
+- **Sidebar reorganizado** — Itens agrupados em "Essencial" (Painel, Custos, Precificação, Indicadores), "Ferramentas" (Serviços, Simulação, Relatórios), e rodapé (Meu Perfil, Configurações). Reduzido de 10 para 7 itens visíveis.
+- **"Início" renomeado para "Painel"** no sidebar.
+- **"Material descartável por sessão"** renomeado para **"Materiais de uso único por sessão"** com descrição melhorada: valor deve ser o total mensal (custo por sessão × nº de sessões).
+- **Rota `/reservas`** redireciona para `/custos`.
+- **Roteamento** — Visitantes sem login veem a Landing page; logados veem o Dashboard.
+
+### Corrigido
+- **Configurações** — "Seus dados ficam salvos localmente" → "Seus dados ficam salvos na sua conta" (dados sincronizam com servidor).
+- **Relatórios** — "Os cálculos de lucro não incluem impostos" → "Os cálculos de impostos são estimativas baseadas no regime tributário selecionado" (app já inclui impostos).
+
+### Arquivos modificados/criados
+- `client/src/pages/Landing.tsx` — Nova landing page com calculadora rápida
+- `client/src/components/ProgressGate.tsx` — Componente de gate progressivo
+- `client/src/components/Layout.tsx` — Sidebar reorganizado com agrupamento
+- `client/src/pages/Home.tsx` — Progresso guiado adicionado ao dashboard
+- `client/src/pages/Custos.tsx` — Aba Reservas integrada
+- `client/src/pages/Reservas.tsx` — Prop `asTab` para uso dentro de Custos
+- `client/src/pages/Servicos.tsx` — ProgressGate adicionado
+- `client/src/pages/Simulacao.tsx` — ProgressGate adicionado
+- `client/src/pages/Relatorios.tsx` — ProgressGate adicionado + disclaimer corrigido
+- `client/src/pages/Configuracoes.tsx` — Texto de armazenamento corrigido
+- `client/src/App.tsx` — Roteamento Landing vs Dashboard
+- `client/src/lib/store.ts` — Renomeação custo variável + migração
+
+---
+
 ## [1.4.0] — 2026-03-17
 
 ### Segurança
