@@ -48,6 +48,15 @@ const trpcClient = trpc.createClient({
   ],
 });
 
+// Global error handlers for unhandled exceptions and rejections
+window.addEventListener('error', (event) => {
+  console.error('[Global] Unhandled error:', event.error);
+});
+
+window.addEventListener('unhandledrejection', (event) => {
+  console.error('[Global] Unhandled promise rejection:', event.reason);
+});
+
 createRoot(document.getElementById("root")!).render(
   <trpc.Provider client={trpcClient} queryClient={queryClient}>
     <QueryClientProvider client={queryClient}>

@@ -21,6 +21,17 @@ class ErrorBoundary extends Component<Props, State> {
     return { hasError: true, error };
   }
 
+  componentDidCatch(error: Error, errorInfo: { componentStack?: string | null }) {
+    console.error('[ErrorBoundary] Unhandled error:', error);
+    console.error('[ErrorBoundary] Component stack:', errorInfo.componentStack);
+
+    // Report to external service (Sentry, LogRocket, etc.) when configured
+    const win = window as unknown as Record<string, unknown>;
+    if (typeof window !== 'undefined' && win.__ERROR_REPORTER__) {
+      (win.__ERROR_REPORTER__ as (e: Error, info: unknown) => void)(error, errorInfo);
+    }
+  }
+
   render() {
     if (this.state.hasError) {
       return (

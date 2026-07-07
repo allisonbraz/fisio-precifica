@@ -10,6 +10,43 @@ const t = initTRPC.context<TrpcContext>().create({
 export const router = t.router;
 export const publicProcedure = t.procedure;
 
+// --- Rate Limiting ---
+const rateLimitStore = new Map<string, { count: number; resetAt: number }>();
+const RATE_LIMIT_WINDOW_MS = 60_000;
+const RATE_LIMIT_MAX = 5;
+
+setInterval(() => {
+  const now = Date.now();
+  rateLimitStore.forEach((entry, key) => {
+    if (now > entry.resetAt) rateLimitStore.delete(key);
+  });
+}, 60_000);
+
+const rateLimit = t.middleware(async ({ ctx, next }) => {
+  const ip = (ctx.req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim()
+    || ctx.req.ip
+    || 'unknown';
+
+  const now = Date.now();
+  const entry = rateLimitStore.get(ip);
+
+  if (entry && now < entry.resetAt) {
+    if (entry.count >= RATE_LIMIT_MAX) {
+      throw new TRPCError({
+        code: 'TOO_MANY_REQUESTS',
+        message: 'Muitas requisições. Tente novamente em 1 minuto.',
+      });
+    }
+    entry.count++;
+  } else {
+    rateLimitStore.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
+  }
+
+  return next();
+});
+
+export const rateLimitedProcedure = t.procedure.use(rateLimit);
+
 const requireUser = t.middleware(async opts => {
   const { ctx, next } = opts;
 

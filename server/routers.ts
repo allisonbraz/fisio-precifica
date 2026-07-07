@@ -1,5 +1,5 @@
 import { systemRouter } from "./_core/systemRouter";
-import { publicProcedure, protectedProcedure, adminProcedure, router } from "./_core/trpc";
+import { publicProcedure, protectedProcedure, adminProcedure, rateLimitedProcedure, router } from "./_core/trpc";
 import { createLead, getLeads, getLeadsCount, getLeadsForExport, getUnifiedContacts, getUnifiedContactsForExport, savePricingData, loadPricingData, getUserByEmail, updateUserEmail } from "./db";
 import { supabaseAdmin } from "./_core/supabase";
 import { TRPCError } from "@trpc/server";
@@ -12,7 +12,7 @@ export const appRouter = router({
   }),
 
   leads: router({
-    register: publicProcedure
+    register: rateLimitedProcedure
       .input(z.object({
         nome: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
         email: z.string().email("E-mail inválido"),
@@ -56,7 +56,83 @@ export const appRouter = router({
   pricing: router({
     save: protectedProcedure
       .input(z.object({
-        data: z.record(z.string(), z.unknown()),
+        data: z.object({
+          custosFixos: z.array(z.object({
+            id: z.string(),
+            nome: z.string(),
+            valor: z.number().min(0),
+            frequencia: z.enum(['mensal', 'anual']),
+            observacao: z.string().optional().default(''),
+            descricao: z.string().optional().default(''),
+            temParcelaAtiva: z.boolean().optional(),
+            isDepreciacao: z.boolean().optional(),
+          })).optional(),
+          custosVariaveis: z.array(z.object({
+            id: z.string(),
+            nome: z.string(),
+            valor: z.number().min(0),
+            frequencia: z.enum(['mensal', 'anual']),
+            observacao: z.string().optional().default(''),
+            descricao: z.string().optional().default(''),
+          })).optional(),
+          reservasEstrategicas: z.array(z.object({
+            id: z.string(),
+            nome: z.string(),
+            valor: z.number().min(0),
+            frequencia: z.enum(['mensal', 'anual']),
+            descricao: z.string().optional().default(''),
+            modo: z.enum(['fixo', 'percentual']).optional(),
+            percentual: z.number().min(0).max(1).optional(),
+          })).optional(),
+          sessoesMeta: z.number().min(0).optional(),
+          margemLucro: z.number().min(0).max(1).optional(),
+          impostoPercentual: z.number().min(0).max(1).optional(),
+          precoDefinido: z.number().min(0).optional(),
+          horasTrabalho: z.number().min(0).optional(),
+          diasUteis: z.number().min(0).optional(),
+          sessoesporDia: z.number().min(0).optional(),
+          duracaoPadraoMinutos: z.number().min(0).optional(),
+          regimeTributario: z.enum(['mei', 'simples', 'presumido', 'autonomo', 'personalizado']).optional(),
+          tiposServico: z.array(z.object({
+            id: z.string(),
+            nome: z.string(),
+            duracaoMinutos: z.number().min(0),
+            custoAdicional: z.number().min(0),
+            multiplicadorPreco: z.number().min(0),
+            descricao: z.string().optional().default(''),
+          })).optional(),
+          planosTratamento: z.array(z.object({
+            id: z.string(),
+            nome: z.string(),
+            tipoServicoId: z.string(),
+            quantidadeSessoes: z.number().min(1),
+            descontoPercentual: z.number().min(0).max(100),
+            validade: z.number().min(1),
+          })).optional(),
+          registrosMensais: z.array(z.object({
+            id: z.string(),
+            mes: z.string(),
+            sessoesRealizadas: z.number().min(0),
+            receitaTotal: z.number().min(0),
+            custoFixoTotal: z.number().min(0),
+            custoVariavelTotal: z.number().min(0),
+            observacoes: z.string().optional().default(''),
+          })).optional(),
+          _perfil: z.object({
+            nome: z.string(),
+            cidade: z.string(),
+            endereco: z.string(),
+            crefito: z.string(),
+            especialidades: z.string(),
+            logoUrl: z.string(),
+            whatsapp: z.string(),
+            instagram: z.string(),
+            cpfCnpj: z.string(),
+            nomeEmpresa: z.string(),
+            site: z.string(),
+            outraRedeSocial: z.string(),
+          }).partial().optional(),
+        }).passthrough(),
       }))
       .mutation(async ({ input, ctx }) => {
         const saved = await savePricingData(ctx.user.email!, input.data);
