@@ -1,0 +1,30 @@
+handoff:
+  from_agent: aiox-master
+  to_agent: devops
+  consumed: false
+  story_context:
+    story_id: null
+    story_path: null
+    story_status: null
+    current_task: "Commit + push 7 UX improvements + environment bootstrap"
+    branch: main
+  decisions:
+    - "7 melhorias de UX implementadas no FisioPrecifica"
+    - "Environment bootstrap concluído com sucesso"
+    - "Build Vite compila sem erros"
+    - "Logo atualizado com fundo transparente"
+  files_modified:
+    - client/src/pages/Precificacao.tsx
+    - client/src/pages/Reservas.tsx
+    - client/src/pages/Custos.tsx
+    - client/src/pages/Simulacao.tsx
+    - client/src/pages/Relatorios.tsx
+    - client/src/pages/Home.tsx
+    - client/src/pages/Perfil.tsx
+    - client/src/pages/Configuracoes.tsx
+    - client/src/App.tsx
+    - client/src/components/OnboardingWizard.tsx (NEW)
+    - client/public/logo-fisio.png (NEW)
+    - .aiox/environment-report.yaml (NEW)
+  blockers: []
+  next_action: "Commit all changes and push to origin/main"
