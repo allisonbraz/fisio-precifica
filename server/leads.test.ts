@@ -79,10 +79,12 @@ function createAdminContext(): TrpcContext {
 function createUserContext(): TrpcContext {
   const user: AuthenticatedUser = {
     id: 2,
-    openId: "regular-user",
+    supabaseId: "00000000-0000-0000-0000-000000000002",
     email: "user@fisio.com",
     name: "Regular User",
-    loginMethod: "manus",
+    whatsapp: null,
+    loginMethod: "email",
+    source: "supabase",
     role: "user",
     createdAt: new Date(),
     updatedAt: new Date(),

@@ -40,6 +40,9 @@ function makeData(overrides: Partial<DadosPrecificacao> = {}): DadosPrecificacao
     horasTrabalho: 8,
     diasUteis: 22,
     sessoesporDia: 8,
+    duracaoPadraoMinutos: 50,
+    regimeTributario: 'simples',
+    impostoPercentual: 0.06,
     ...overrides,
   };
 }
@@ -117,14 +120,16 @@ describe('calcularCustoTotalPorSessao', () => {
 });
 
 describe('calcularPrecoMinimo', () => {
-  it('applies margin to cost per session', () => {
+  it('applies margin-over-revenue formula to cost per session', () => {
     const data = makeData({
       custosFixos: [makeCustoFixo({ valor: 8000 })],
       sessoesMeta: 80,
       margemLucro: 0.3,
+      impostoPercentual: 0,
     });
-    // Cost/session = 100, price = 100 * 1.3 = 130
-    expect(calcularPrecoMinimo(data)).toBe(130);
+    // Cost/session = 8000/80 = 100
+    // Price = cost / (1 - margem - imposto) = 100 / (1 - 0.3 - 0) = 142.86
+    expect(calcularPrecoMinimo(data)).toBeCloseTo(142.86, 1);
   });
 });
 
@@ -133,26 +138,31 @@ describe('calcularMargemDoPreco', () => {
     const data = makeData({
       custosFixos: [makeCustoFixo({ valor: 8000 })],
       sessoesMeta: 80,
+      impostoPercentual: 0,
     });
-    // Cost/session = 100, price = 150 → margin = (150-100)/100 = 0.5
-    expect(calcularMargemDoPreco(data, 150)).toBe(0.5);
+    // Margem sobre receita: (preco - custo - impostos) / preco
+    // Cost/session = 100, impostos = 0, margin = (150 - 100 - 0) / 150 = 0.333...
+    expect(calcularMargemDoPreco(data, 150)).toBeCloseTo(0.3333, 3);
   });
 
   it('handles zero cost', () => {
-    const data = makeData({ sessoesMeta: 80 });
+    const data = makeData({ sessoesMeta: 80, impostoPercentual: 0 });
+    // margin = (100 - 0 - 0) / 100 = 1
     expect(calcularMargemDoPreco(data, 100)).toBe(1);
     expect(calcularMargemDoPreco(data, 0)).toBe(0);
   });
 });
 
 describe('calcularLucroOperacional', () => {
-  it('calculates revenue minus total costs', () => {
+  it('calculates revenue minus impostos minus costs', () => {
     const data = makeData({
       custosFixos: [makeCustoFixo({ valor: 5000 })],
       custosVariaveis: [{ id: '1', nome: 'V', valor: 1000, frequencia: 'mensal', observacao: '', descricao: '' }],
       sessoesMeta: 100,
+      impostoPercentual: 0,
     });
-    // Revenue = 150 * 100 = 15000, Cost = 6000, Profit = 9000
+    // Revenue = 150 * 100 = 15000, Impostos = 0, Cost = 6000
+    // LucroOp = 15000 - 0 - 6000 = 9000
     expect(calcularLucroOperacional(data, 150)).toBe(9000);
   });
 });
@@ -162,9 +172,12 @@ describe('calcularLucroDisponivel', () => {
     const data = makeData({
       custosFixos: [makeCustoFixo({ valor: 5000 })],
       sessoesMeta: 100,
+      impostoPercentual: 0,
       reservasEstrategicas: [{ id: 'r1', nome: 'Reserva', valor: 2000, frequencia: 'mensal', descricao: '' }],
     });
-    // Revenue = 150 * 100 = 15000, Cost = 5000, OpProfit = 10000, Available = 10000 - 2000 = 8000
+    // Revenue = 150 * 100 = 15000, Impostos = 0, Cost = 5000
+    // LucroOp = 15000 - 0 - 5000 = 10000
+    // LucroDisponivel = 10000 - 2000 = 8000
     expect(calcularLucroDisponivel(data, 150)).toBe(8000);
   });
 });
@@ -174,8 +187,10 @@ describe('calcularPontoEquilibrio', () => {
     const data = makeData({
       custosFixos: [makeCustoFixo({ valor: 4000 })],
       sessoesMeta: 80,
+      impostoPercentual: 0,
     });
-    // Fixed cost = 4000, variable/session = 0, contribution = 100 - 0 = 100
+    // Fixed cost = 4000, reservas = 0, variable/session = 0
+    // Contribuição = preço - imposto - custoVar = 100 - 0 - 0 = 100
     // Break-even = ceil(4000 / 100) = 40
     expect(calcularPontoEquilibrio(data, 100)).toBe(40);
   });
@@ -184,6 +199,7 @@ describe('calcularPontoEquilibrio', () => {
     const data = makeData({
       custosFixos: [makeCustoFixo({ valor: 4000 })],
       sessoesMeta: 80,
+      impostoPercentual: 0,
     });
     expect(calcularPontoEquilibrio(data, 0)).toBe(Infinity);
   });
@@ -209,16 +225,22 @@ describe('simularPreco', () => {
     const data = makeData({
       custosFixos: [makeCustoFixo({ valor: 4000 })],
       sessoesMeta: 80,
+      impostoPercentual: 0,
       reservasEstrategicas: [{ id: 'r1', nome: 'R', valor: 500, frequencia: 'mensal', descricao: '' }],
     });
     const result = simularPreco(data, 100);
+    // Receita = 100 * 80 = 8000, Impostos = 0
+    // CustoOp = 4000, Reservas = 500, CustoTotal = 4500
+    // LucroOp = 8000 - 0 - 4000 = 4000
+    // LucroDisp = 4000 - 500 = 3500
+    // Margem = 3500 / 8000 * 100 = 43.75
     expect(result.receitaMensal).toBe(8000);
-    expect(result.custoTotal).toBe(4000);
+    expect(result.custoTotal).toBe(4500);
     expect(result.lucroOperacional).toBe(4000);
     expect(result.reservas).toBe(500);
     expect(result.lucroDisponivel).toBe(3500);
     expect(result.viavel).toBe(true);
-    expect(result.margem).toBe(50);
+    expect(result.margem).toBe(43.75);
   });
 
   it('marks as inviable when revenue < cost', () => {
