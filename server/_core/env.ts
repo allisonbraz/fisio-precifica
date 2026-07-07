@@ -20,3 +20,12 @@ export const ENV = {
   forgeApiUrl: process.env.BUILT_IN_FORGE_API_URL ?? "",
   forgeApiKey: process.env.BUILT_IN_FORGE_API_KEY ?? "",
 };
+
+// Startup validation — clear feedback for missing critical vars
+if (!ENV.databaseUrl) {
+  console.error("\n⚠️  DATABASE_URL not set — database features will be unavailable.");
+  console.error("   Copy .env.example to .env and fill in your PostgreSQL connection string.\n");
+}
+if (!ENV.supabaseUrl || !ENV.supabaseAnonKey) {
+  console.warn("[ENV] Supabase not configured — authentication will not work.");
+}

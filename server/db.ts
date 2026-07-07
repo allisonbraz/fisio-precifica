@@ -4,18 +4,26 @@ import postgres from "postgres";
 import { InsertUser, users, InsertLead, leads, pricingData } from "../drizzle/schema";
 
 let _db: ReturnType<typeof drizzle> | null = null;
+let _lastAttempt = 0;
+const DB_RETRY_INTERVAL_MS = 5000;
 
 export async function getDb() {
-  if (!_db && process.env.DATABASE_URL) {
-    try {
-      const client = postgres(process.env.DATABASE_URL);
-      _db = drizzle(client);
-    } catch (error) {
-      console.warn("[Database] Failed to connect:", error);
-      _db = null;
-    }
+  if (_db) return _db;
+
+  if (!process.env.DATABASE_URL) return null;
+
+  const now = Date.now();
+  if (now - _lastAttempt < DB_RETRY_INTERVAL_MS) return null;
+
+  _lastAttempt = now;
+  try {
+    const client = postgres(process.env.DATABASE_URL);
+    _db = drizzle(client);
+    return _db;
+  } catch (error) {
+    console.warn("[Database] Connection failed, will retry in 5s:", error);
+    return null;
   }
-  return _db;
 }
 
 export async function upsertUser(user: InsertUser): Promise<void> {
@@ -157,86 +165,122 @@ export interface UnifiedContact {
   lastSignedIn: Date | null;
 }
 
-const UNIFIED_CONTACTS_MAX = 5000;
-
 export async function getUnifiedContacts(limit = 100, offset = 0): Promise<{ items: UnifiedContact[]; total: number }> {
   const db = await getDb();
   if (!db) return { items: [], total: 0 };
 
-  const [allLeads, allUsers, allPricing] = await Promise.all([
-    db.select().from(leads).orderBy(desc(leads.createdAt)).limit(UNIFIED_CONTACTS_MAX),
-    db.select().from(users).orderBy(desc(users.createdAt)).limit(UNIFIED_CONTACTS_MAX),
-    db.select({ ownerEmail: pricingData.ownerEmail, data: pricingData.data }).from(pricingData).limit(UNIFIED_CONTACTS_MAX),
-  ]);
+  // Count total unique contacts at DB level
+  const countResult = await db.execute(sql`
+    SELECT COUNT(*) as total FROM (
+      SELECT LOWER(TRIM(email)) as key FROM leads
+      UNION
+      SELECT LOWER(TRIM(email)) as key FROM users WHERE email IS NOT NULL
+    ) unified
+  `);
+  const total = Number(countResult[0]?.total ?? 0);
 
-  // Build profile lookup from pricing_data JSONB (_perfil field)
-  const perfilByEmail = new Map<string, { whatsapp?: string; instagram?: string; especialidades?: string }>();
-  for (const pd of allPricing) {
-    const perfil = (pd.data as Record<string, unknown>)?._perfil as Record<string, string> | undefined;
-    if (perfil) {
-      perfilByEmail.set(pd.ownerEmail.toLowerCase().trim(), perfil);
+  // Paginated query: leads first (with user join), then users without leads
+  const rows = await db.execute(sql`
+    WITH lead_contacts AS (
+      SELECT DISTINCT ON (LOWER(TRIM(l.email)))
+        'lead-' || l.id::text as id,
+        l.nome,
+        l.email,
+        COALESCE(l.whatsapp, u.whatsapp, '') as whatsapp,
+        COALESCE(l.source, 'banner') as source,
+        l."createdAt",
+        u."lastSignedIn",
+        CASE WHEN u.id IS NOT NULL THEN true ELSE false END as "hasOAuth",
+        CASE WHEN u.id IS NOT NULL
+          THEN COALESCE(l.source, 'banner') || ' + login'
+          ELSE COALESCE(l.source, 'banner')
+        END as computed_source
+      FROM leads l
+      LEFT JOIN users u ON LOWER(TRIM(u.email)) = LOWER(TRIM(l.email))
+      ORDER BY LOWER(TRIM(l.email)), l."createdAt" DESC
+    ),
+    user_only_contacts AS (
+      SELECT
+        'user-' || u.id::text as id,
+        COALESCE(u.name, '') as nome,
+        u.email,
+        COALESCE(u.whatsapp, '') as whatsapp,
+        COALESCE(u.source, 'supabase') as source,
+        u."createdAt",
+        u."lastSignedIn",
+        true as "hasOAuth",
+        COALESCE(u.source, 'supabase') as computed_source
+      FROM users u
+      WHERE u.email IS NOT NULL
+        AND NOT EXISTS (
+          SELECT 1 FROM leads l
+          WHERE LOWER(TRIM(l.email)) = LOWER(TRIM(u.email))
+        )
+    ),
+    all_contacts AS (
+      SELECT * FROM lead_contacts
+      UNION ALL
+      SELECT * FROM user_only_contacts
+    )
+    SELECT * FROM all_contacts
+    ORDER BY "createdAt" DESC
+    LIMIT ${limit} OFFSET ${offset}
+  `);
+
+  // Enrich only the current page with pricing_data perfil
+  const emails = (rows as Array<Record<string, unknown>>)
+    .map(r => (r.email as string)?.toLowerCase().trim())
+    .filter(Boolean);
+
+  let perfilByEmail = new Map<string, Record<string, string>>();
+  if (emails.length > 0) {
+    const pricingRows = await db.select({ ownerEmail: pricingData.ownerEmail, data: pricingData.data })
+      .from(pricingData)
+      .where(sql`LOWER(TRIM("ownerEmail")) = ANY(ARRAY[${sql.join(emails.map(e => sql`${e}`), sql`,`)}])`);
+
+    for (const pd of pricingRows) {
+      const perfil = (pd.data as Record<string, unknown>)?._perfil as Record<string, string> | undefined;
+      if (perfil) {
+        perfilByEmail.set(pd.ownerEmail.toLowerCase().trim(), perfil);
+      }
     }
   }
 
-  const userByEmail = new Map<string, typeof allUsers[number]>();
-  for (const user of allUsers) {
-    if (user.email) {
-      userByEmail.set(user.email.toLowerCase().trim(), user);
-    }
-  }
-
-  const contactMap = new Map<string, UnifiedContact>();
-
-  for (const lead of allLeads) {
-    const key = lead.email.toLowerCase().trim();
-    if (contactMap.has(key)) continue;
-
-    const matchedUser = userByEmail.get(key);
-    const perfil = perfilByEmail.get(key);
-    contactMap.set(key, {
-      id: `lead-${lead.id}`,
-      nome: lead.nome || matchedUser?.name || '',
-      email: lead.email,
-      whatsapp: lead.whatsapp || matchedUser?.whatsapp || perfil?.whatsapp || '',
+  const items: UnifiedContact[] = (rows as Array<Record<string, unknown>>).map(row => {
+    const email = (row.email as string) || '';
+    const perfil = perfilByEmail.get(email.toLowerCase().trim());
+    return {
+      id: row.id as string,
+      nome: (row.nome as string) || '',
+      email,
+      whatsapp: (row.whatsapp as string) || perfil?.whatsapp || '',
       instagram: perfil?.instagram || '',
       especialidades: perfil?.especialidades || '',
-      source: matchedUser ? `${lead.source || 'banner'} + login` : (lead.source || 'banner'),
-      hasOAuth: !!matchedUser,
-      createdAt: lead.createdAt,
-      lastSignedIn: matchedUser?.lastSignedIn ?? null,
-    });
-    if (matchedUser) userByEmail.delete(key);
-  }
-
-  for (const [key, user] of Array.from(userByEmail.entries())) {
-    if (contactMap.has(key)) continue;
-    const perfil = perfilByEmail.get(key);
-    contactMap.set(key, {
-      id: `user-${user.id}`,
-      nome: user.name || '',
-      email: user.email!,
-      whatsapp: user.whatsapp || perfil?.whatsapp || '',
-      instagram: perfil?.instagram || '',
-      especialidades: perfil?.especialidades || '',
-      source: user.source || 'supabase',
-      hasOAuth: true,
-      createdAt: user.createdAt,
-      lastSignedIn: user.lastSignedIn,
-    });
-  }
-
-  const all = Array.from(contactMap.values())
-    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-
-  const total = all.length;
-  const items = all.slice(offset, offset + limit);
+      source: (row.computed_source as string) || (row.source as string) || '',
+      hasOAuth: row.hasOAuth as boolean,
+      createdAt: new Date(row.createdAt as string),
+      lastSignedIn: row.lastSignedIn ? new Date(row.lastSignedIn as string) : null,
+    };
+  });
 
   return { items, total };
 }
 
 export async function getUnifiedContactsForExport(): Promise<UnifiedContact[]> {
-  const result = await getUnifiedContacts(UNIFIED_CONTACTS_MAX, 0);
-  return result.items;
+  const db = await getDb();
+  if (!db) return [];
+
+  // For export, paginate in chunks to avoid loading everything at once
+  const allItems: UnifiedContact[] = [];
+  let offset = 0;
+  const chunkSize = 500;
+  while (true) {
+    const { items } = await getUnifiedContacts(chunkSize, offset);
+    allItems.push(...items);
+    if (items.length < chunkSize) break;
+    offset += chunkSize;
+  }
+  return allItems;
 }
 
 // ===== PRICING DATA =====

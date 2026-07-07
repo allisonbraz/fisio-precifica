@@ -27,7 +27,4 @@ jobs:
         run: pnpm run check
 
       - name: Tests
-        run: pnpm test
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          JWT_SECRET: test-secret
+        run: pnpm run test
