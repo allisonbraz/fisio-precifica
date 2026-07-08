@@ -1,4 +1,5 @@
 import "dotenv/config";
+import * as Sentry from "@sentry/node";
 import express from "express";
 import { createServer } from "http";
 import net from "net";
@@ -6,6 +7,14 @@ import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
+
+if (process.env.SENTRY_DSN) {
+  Sentry.init({
+    dsn: process.env.SENTRY_DSN,
+    environment: process.env.NODE_ENV || 'development',
+    tracesSampleRate: 0.2,
+  });
+}
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -41,6 +50,7 @@ async function startServer() {
         console.error(`[tRPC Error] ${path ?? 'unknown'}:`, error.message);
         if (error.code === 'INTERNAL_SERVER_ERROR') {
           console.error('[tRPC Error] Stack:', error.stack);
+          Sentry.captureException(error, { extra: { path } });
         }
       },
     })

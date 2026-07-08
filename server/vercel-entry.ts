@@ -3,10 +3,19 @@
  * Built with esbuild into api/trpc.js
  */
 import 'dotenv/config';
+import * as Sentry from '@sentry/node';
 import express from 'express';
 import { createExpressMiddleware } from '@trpc/server/adapters/express';
 import { appRouter } from './routers';
 import { createContext } from './_core/context';
+
+if (process.env.SENTRY_DSN) {
+  Sentry.init({
+    dsn: process.env.SENTRY_DSN,
+    environment: process.env.NODE_ENV || 'production',
+    tracesSampleRate: 0.2,
+  });
+}
 
 const app = express();
 
@@ -22,6 +31,7 @@ app.use(
       console.error(`[tRPC Error] ${path ?? 'unknown'}:`, error.message);
       if (error.code === 'INTERNAL_SERVER_ERROR') {
         console.error('[tRPC Error] Stack:', error.stack);
+        Sentry.captureException(error, { extra: { path } });
       }
     },
   }),

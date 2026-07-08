@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/react";
 import { cn } from "@/lib/utils";
 import { AlertTriangle, RotateCcw } from "lucide-react";
 import { Component, ReactNode } from "react";
@@ -24,12 +25,7 @@ class ErrorBoundary extends Component<Props, State> {
   componentDidCatch(error: Error, errorInfo: { componentStack?: string | null }) {
     console.error('[ErrorBoundary] Unhandled error:', error);
     console.error('[ErrorBoundary] Component stack:', errorInfo.componentStack);
-
-    // Report to external service (Sentry, LogRocket, etc.) when configured
-    const win = window as unknown as Record<string, unknown>;
-    if (typeof window !== 'undefined' && win.__ERROR_REPORTER__) {
-      (win.__ERROR_REPORTER__ as (e: Error, info: unknown) => void)(error, errorInfo);
-    }
+    Sentry.captureException(error, { extra: { componentStack: errorInfo.componentStack } });
   }
 
   render() {
