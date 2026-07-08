@@ -6,21 +6,46 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { trpc } from '@/lib/trpc';
+import { KeyRound } from 'lucide-react';
 
 export default function Login() {
   const [, setLocation] = useLocation();
-  const [mode, setMode] = useState<'login' | 'signup'>('login');
+  const [mode, setMode] = useState<'login' | 'signup' | 'reset'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
   const utils = trpc.useUtils();
 
+  const handleResetPassword = async () => {
+    if (!email) {
+      toast.error('Digite seu e-mail primeiro');
+      return;
+    }
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/login`,
+      });
+      if (error) throw error;
+      toast.success('E-mail de recuperação enviado! Verifique sua caixa de entrada.');
+      setMode('login');
+    } catch (error: any) {
+      toast.error(error?.message || 'Erro ao enviar e-mail de recuperação');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
+      if (mode === 'reset') {
+        await handleResetPassword();
+        return;
+      }
       if (mode === 'signup') {
         const { data: signUpData, error } = await supabase.auth.signUp({
           email,
@@ -66,14 +91,16 @@ export default function Login() {
     <div className="min-h-screen flex items-center justify-center bg-background px-4">
       <div className="w-full max-w-sm space-y-6">
         <div className="text-center space-y-2">
-          <img src="/fisio-logo.png" alt="FisioPrecifica" className="h-16 mx-auto" />
+          <img src="/logo-fisio.png" alt="FisioPrecifica" className="h-16 mx-auto" />
           <h1 className="text-2xl font-heading font-bold text-foreground">
             FisioPrecifica
           </h1>
           <p className="text-sm text-muted-foreground">
             {mode === 'login'
-              ? 'Entre para acessar seus dados'
-              : 'Crie sua conta gratuita'}
+              ? 'Acesse sua calculadora de preços'
+              : mode === 'signup'
+                ? 'Crie sua conta gratuita'
+                : 'Recupere o acesso à sua conta'}
           </p>
         </div>
 
@@ -104,18 +131,31 @@ export default function Login() {
             />
           </div>
 
-          <div className="space-y-1.5">
-            <Label>Senha</Label>
-            <Input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Mínimo 6 caracteres"
-              required
-              minLength={6}
-              className="rounded-xl"
-            />
-          </div>
+          {mode !== 'reset' && (
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <Label>Senha</Label>
+                {mode === 'login' && (
+                  <button
+                    type="button"
+                    onClick={() => setMode('reset')}
+                    className="text-xs text-primary hover:underline"
+                  >
+                    Esqueceu a senha?
+                  </button>
+                )}
+              </div>
+              <Input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Mínimo 6 caracteres"
+                required
+                minLength={6}
+                className="rounded-xl"
+              />
+            </div>
+          )}
 
           <Button
             type="submit"
@@ -126,7 +166,9 @@ export default function Login() {
               ? 'Aguarde...'
               : mode === 'login'
                 ? 'Entrar'
-                : 'Criar conta'}
+                : mode === 'signup'
+                  ? 'Criar conta'
+                  : 'Enviar e-mail de recuperação'}
           </Button>
         </form>
 
@@ -144,7 +186,7 @@ export default function Login() {
             </>
           ) : (
             <>
-              Já tem conta?{' '}
+              {mode === 'reset' ? 'Lembrou a senha?' : 'Já tem conta?'}{' '}
               <button
                 type="button"
                 onClick={() => setMode('login')}

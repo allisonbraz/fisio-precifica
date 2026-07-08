@@ -18,10 +18,12 @@ import {
   Shield,
   Smartphone,
   CheckCircle2,
+  Share2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import CurrencyInput from '@/components/CurrencyInput';
 import { Input } from '@/components/ui/input';
+import { Slider } from '@/components/ui/slider';
 import { formatarMoeda } from '@/lib/store';
 
 const HERO_IMG = '/logo-fisio.png';
@@ -55,11 +57,16 @@ export default function Landing() {
             </div>
             <span className="font-heading text-lg font-bold text-foreground">FisioPrecifica</span>
           </div>
-          <Link href="/login">
-            <Button variant="default" size="sm" className="rounded-xl gap-1.5">
-              Entrar / Cadastrar
-            </Button>
-          </Link>
+          <div className="flex items-center gap-3">
+            <a href="#calculadora" className="text-sm text-muted-foreground hover:text-foreground hidden sm:inline">
+              Calculadora
+            </a>
+            <Link href="/login">
+              <Button variant="default" size="sm" className="rounded-xl gap-1.5">
+                Entrar / Cadastrar
+              </Button>
+            </Link>
+          </div>
         </div>
       </header>
 
@@ -123,6 +130,24 @@ export default function Landing() {
         </div>
       </section>
 
+      {/* Social Proof */}
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 pb-8">
+        <div className="flex flex-wrap items-center justify-center gap-6 text-sm text-muted-foreground">
+          <span className="flex items-center gap-1.5">
+            <CheckCircle2 className="w-4 h-4 text-sage-dark" />
+            Usado por fisioterapeutas em todo o Brasil
+          </span>
+          <span className="flex items-center gap-1.5">
+            <CheckCircle2 className="w-4 h-4 text-sage-dark" />
+            Cálculo baseado em metodologia real
+          </span>
+          <span className="flex items-center gap-1.5">
+            <CheckCircle2 className="w-4 h-4 text-sage-dark" />
+            Feito por fisioterapeuta
+          </span>
+        </div>
+      </div>
+
       {/* Problem */}
       <section className="bg-terracotta/5 border-y border-terracotta/10">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 py-12 text-center">
@@ -185,18 +210,19 @@ export default function Landing() {
               />
             </div>
             <div>
-              <label className="text-sm font-medium text-foreground mb-1.5 block">
+              <label className="text-sm font-medium text-foreground mb-3 block">
                 Margem de lucro desejada: <strong className="text-primary">{margemDesejada}%</strong>
               </label>
-              <input
-                type="range"
+              <Slider
+                value={[margemDesejada]}
+                onValueChange={(val) => setMargemDesejada(val[0])}
                 min={5}
                 max={60}
-                value={margemDesejada}
-                onChange={(e) => setMargemDesejada(parseInt(e.target.value))}
-                className="w-full accent-primary"
+                step={1}
+                aria-label="Margem de lucro desejada"
+                className="w-full"
               />
-              <div className="flex justify-between text-[10px] text-muted-foreground mt-1">
+              <div className="flex justify-between text-[10px] text-muted-foreground mt-1.5">
                 <span>5%</span>
                 <span>60%</span>
               </div>
@@ -234,13 +260,25 @@ export default function Landing() {
                   <p className="font-mono font-semibold text-sage-dark">{formatarMoeda(resultado.lucroMensal)}</p>
                 </div>
               </div>
+              <button
+                type="button"
+                onClick={() => {
+                  const text = `Calculei meu preço mínimo por sessão: ${formatarMoeda(resultado.precoMinimo)}! Descubra o seu em fisio-precifica.vercel.app`;
+                  const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(text)}`;
+                  window.open(whatsappUrl, '_blank');
+                }}
+                className="flex items-center justify-center gap-2 w-full py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <Share2 className="w-4 h-4" />
+                Compartilhar no WhatsApp
+              </button>
               <div className="bg-primary/5 rounded-xl p-4 text-center space-y-3">
                 <p className="text-sm text-foreground font-medium">
-                  Quer a análise completa com indicadores, simulações e relatório PDF?
+                  Crie sua conta para salvar este resultado e acessar a análise completa com simulações e relatório PDF.
                 </p>
                 <Link href="/login">
                   <Button className="rounded-xl gap-2">
-                    Criar conta gratuita <ArrowRight className="w-4 h-4" />
+                    Salvar e ver análise completa <ArrowRight className="w-4 h-4" />
                   </Button>
                 </Link>
               </div>
@@ -272,7 +310,7 @@ export default function Landing() {
               {
                 icon: Target,
                 step: '3',
-                title: 'Acompanhe sua saúde',
+                title: 'Acompanhe sua saúde financeira',
                 desc: 'Indicadores financeiros, simulações e relatórios para tomar decisões com confiança.',
               },
             ].map((item) => (
@@ -306,7 +344,7 @@ export default function Landing() {
           {[
             { icon: DollarSign, title: 'Gestão de Custos', desc: 'Custos fixos, variáveis, depreciação e reservas estratégicas.' },
             { icon: TrendingUp, title: 'Simulação de Cenários', desc: 'Compare cenários otimista, realista e pessimista.' },
-            { icon: Target, title: 'Score de Saúde', desc: '5 indicadores financeiros com nota de 0 a 100.' },
+            { icon: Target, title: 'Score de Saúde Financeira', desc: '5 indicadores financeiros com nota de 0 a 100.' },
             { icon: BarChart3, title: 'Múltiplos Serviços', desc: 'Preços diferentes para RPG, Pilates, domiciliar, etc.' },
             { icon: FileText, title: 'Relatório PDF', desc: 'Relatório profissional com seus custos e preços.' },
             { icon: Smartphone, title: 'Funciona no Celular', desc: 'Interface responsiva otimizada para mobile.' },
