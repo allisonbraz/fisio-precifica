@@ -19,8 +19,8 @@ export default function LeadGate() {
     <motion.div
       initial={{ y: 100, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
-      transition={{ delay: 1, type: 'spring', stiffness: 100 }}
-      className="fixed bottom-0 left-0 right-0 z-[60] bg-gradient-to-r from-terracotta to-terracotta-dark text-white shadow-2xl"
+      transition={{ delay: 1, duration: 0.4, ease: [0.25, 0.1, 0.25, 1] }}
+      className="fixed bottom-0 left-0 right-0 z-[60] bg-gradient-to-r from-terracotta to-terracotta-dark text-white shadow-lg"
     >
       <div className="max-w-4xl mx-auto px-4 py-3 sm:py-4 flex flex-col sm:flex-row items-center justify-between gap-3">
         <div className="flex items-center gap-3 text-center sm:text-left">

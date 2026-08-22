@@ -80,7 +80,7 @@ export default function Landing() {
               className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium"
             >
               <Calculator className="w-3.5 h-3.5" />
-              100% gratuito
+              Diagnóstico inicial gratuito
             </motion.div>
             <motion.h1
               initial={{ opacity: 0, y: 20 }}
@@ -135,7 +135,7 @@ export default function Landing() {
         <div className="flex flex-wrap items-center justify-center gap-6 text-sm text-muted-foreground">
           <span className="flex items-center gap-1.5">
             <CheckCircle2 className="w-4 h-4 text-sage-dark" />
-            Usado por fisioterapeutas em todo o Brasil
+            Feito por fisioterapeuta para fisioterapeutas
           </span>
           <span className="flex items-center gap-1.5">
             <CheckCircle2 className="w-4 h-4 text-sage-dark" />
@@ -179,7 +179,7 @@ export default function Landing() {
             Calculadora Rápida
           </h2>
           <p className="text-muted-foreground">
-            Descubra seu preço mínimo em 30 segundos — sem criar conta
+            Faça uma estimativa inicial em 30 segundos — sem criar conta
           </p>
         </motion.div>
 
@@ -192,7 +192,7 @@ export default function Landing() {
           <div className="space-y-5">
             <div>
               <label className="text-sm font-medium text-foreground mb-1.5 block">
-                Quanto você gasta por mês? (aluguel, materiais, impostos, etc.)
+                Quanto você gasta por mês? (aluguel, materiais e demais custos)
               </label>
               <CurrencyInput value={custoMensal} onChange={setCustoMensal} />
             </div>
@@ -245,7 +245,7 @@ export default function Landing() {
               className="mt-6 pt-6 border-t border-border space-y-4"
             >
               <div className="text-center space-y-1">
-                <p className="text-sm text-muted-foreground">Seu preço mínimo por sessão:</p>
+                <p className="text-sm text-muted-foreground">Sua estimativa inicial por sessão:</p>
                 <p className="text-4xl font-heading font-bold text-primary">
                   {formatarMoeda(resultado.precoMinimo)}
                 </p>
@@ -263,7 +263,7 @@ export default function Landing() {
               <button
                 type="button"
                 onClick={() => {
-                  const text = `Calculei meu preço mínimo por sessão: ${formatarMoeda(resultado.precoMinimo)}! Descubra o seu em fisio-precifica.vercel.app`;
+                  const text = `Fiz uma estimativa inicial do meu preço por sessão: ${formatarMoeda(resultado.precoMinimo)}! Faça a sua em fisio-precifica.vercel.app`;
                   const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(text)}`;
                   window.open(whatsappUrl, '_blank');
                 }}
@@ -305,7 +305,7 @@ export default function Landing() {
                 icon: Calculator,
                 step: '2',
                 title: 'Defina sua margem',
-                desc: 'Ajuste a margem de lucro desejada e veja o preço ideal calculado automaticamente.',
+                desc: 'Veja o piso operacional, o preço sustentável e o preço estratégico para o seu negócio.',
               },
               {
                 icon: Target,
@@ -370,10 +370,10 @@ export default function Landing() {
       <section className="bg-gradient-to-br from-terracotta/10 via-sage-light/20 to-golden-light/30 border-t border-border">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 py-16 text-center space-y-6">
           <h2 className="text-2xl sm:text-3xl font-heading font-bold text-foreground">
-            Comece agora — 100% gratuito
+            Faça seu diagnóstico inicial gratuito
           </h2>
           <p className="text-muted-foreground max-w-lg mx-auto">
-            Sem cartão de crédito, sem período de teste. Crie sua conta e descubra o preço ideal dos seus serviços.
+            Sem cartão de crédito. Crie sua conta e conheça os três níveis de preço dos seus serviços.
           </p>
           <div className="flex flex-wrap gap-3 justify-center">
             <Link href="/login">

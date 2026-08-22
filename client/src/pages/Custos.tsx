@@ -70,6 +70,7 @@ import {
   getValorMensal,
   FrequenciaCusto,
   CustoFixo,
+  CustoVariavel,
 } from '@/lib/store';
 import { toast } from 'sonner';
 
@@ -99,7 +100,7 @@ export default function Custos() {
   const custosDepreciacao = data.custosFixos.filter(c => c.isDepreciacao);
   const totalOperacionais = calcularTotalCustosOperacionais(data.custosFixos);
   const totalDepreciacao = calcularTotalDepreciacao(data.custosFixos);
-  const totalVariaveis = calcularTotalCustosVariaveis(data.custosVariaveis);
+  const totalVariaveis = calcularTotalCustosVariaveis(data.custosVariaveis, data.sessoesMeta, data.precoDefinido * data.sessoesMeta);
   const totalMensal = calcularCustoOperacionalMensal(data);
 
   // Smart question: items that might be reservas
@@ -132,7 +133,7 @@ export default function Custos() {
     } else if (dialogType === 'depreciacao') {
       addCustoFixo({ nome, valor: 0, frequencia: freq, observacao: obs, descricao: '', isDepreciacao: true, temParcelaAtiva: false });
     } else {
-      addCustoVariavel({ nome, valor: 0, frequencia: freq, observacao: obs, descricao: '' });
+      addCustoVariavel({ nome, valor: 0, frequencia: freq, modo: 'mensal', percentual: 0, observacao: obs, descricao: '' });
     }
     resetDialog();
     toast.success('Custo adicionado com sucesso!');
@@ -246,7 +247,7 @@ export default function Custos() {
               <button
                 disabled={!isRegistered || isBlocked}
                 onClick={() => updateCustoFixo(custo.id, { frequencia: 'mensal' })}
-                className={`px-2 py-1 text-[10px] font-medium rounded-l-lg border transition-colors ${
+                className={`px-3 py-2 text-xs min-h-10 font-medium rounded-l-lg border transition-colors ${
                   !isAnual
                     ? 'bg-primary/10 text-primary border-primary/30'
                     : 'bg-muted/30 text-muted-foreground border-border hover:bg-muted/50'
@@ -257,7 +258,7 @@ export default function Custos() {
               <button
                 disabled={!isRegistered || isBlocked}
                 onClick={() => updateCustoFixo(custo.id, { frequencia: 'anual' })}
-                className={`px-2 py-1 text-[10px] font-medium rounded-r-lg border-t border-b border-r transition-colors ${
+                className={`px-3 py-2 text-xs min-h-10 font-medium rounded-r-lg border-t border-b border-r transition-colors ${
                   isAnual
                     ? 'bg-sage/10 text-sage-dark border-sage/30'
                     : 'bg-muted/30 text-muted-foreground border-border hover:bg-muted/50'
@@ -304,7 +305,7 @@ export default function Custos() {
           <button
             disabled={!isRegistered || isBlocked}
             onClick={() => updateCustoFixo(custo.id, { frequencia: 'mensal' })}
-            className={`flex-1 px-2 py-1 text-[10px] font-medium rounded-l-lg border transition-colors ${
+            className={`flex-1 px-3 py-2 text-xs min-h-10 font-medium rounded-l-lg border transition-colors ${
               !isAnual
                 ? 'bg-primary/10 text-primary border-primary/30'
                 : 'bg-muted/30 text-muted-foreground border-border'
@@ -315,7 +316,7 @@ export default function Custos() {
           <button
             disabled={!isRegistered || isBlocked}
             onClick={() => updateCustoFixo(custo.id, { frequencia: 'anual' })}
-            className={`flex-1 px-2 py-1 text-[10px] font-medium rounded-r-lg border-t border-b border-r transition-colors ${
+            className={`flex-1 px-3 py-2 text-xs min-h-10 font-medium rounded-r-lg border-t border-b border-r transition-colors ${
               isAnual
                 ? 'bg-sage/10 text-sage-dark border-sage/30'
                 : 'bg-muted/30 text-muted-foreground border-border'
@@ -329,12 +330,13 @@ export default function Custos() {
   };
 
   const renderCustoVariavelRow = (
-    custo: { id: string; nome: string; valor: number; frequencia: FrequenciaCusto; observacao: string; descricao: string },
+    custo: CustoVariavel,
     index: number,
     total: number,
   ) => {
     const valorMensal = getValorMensal(custo);
-    const isAnual = custo.frequencia === 'anual';
+    const modo = custo.modo || 'mensal';
+    const isAnual = modo === 'mensal' && custo.frequencia === 'anual';
 
     return (
       <motion.div
@@ -362,6 +364,23 @@ export default function Custos() {
             {custo.observacao && (
               <span className="text-xs text-muted-foreground block">{custo.observacao}</span>
             )}
+            <Select
+              value={modo}
+              onValueChange={(value) => updateCustoVariavel(custo.id, {
+                modo: value as CustoVariavel['modo'],
+                percentual: value === 'percentual_receita' ? (custo.percentual || 0) : custo.percentual,
+              })}
+              disabled={!isRegistered}
+            >
+              <SelectTrigger className="h-7 w-[180px] rounded-lg text-[11px] mt-1">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="mensal">Total mensal</SelectItem>
+                <SelectItem value="por_sessao">Valor por sessão</SelectItem>
+                <SelectItem value="percentual_receita">% do faturamento</SelectItem>
+              </SelectContent>
+            </Select>
             {isAnual && custo.valor > 0 && (
               <span className="text-xs text-sage-dark font-medium">
                 = {formatarMoeda(valorMensal)}/mês (÷ 12)
@@ -370,11 +389,11 @@ export default function Custos() {
           </div>
 
           <div className="flex items-center gap-2">
-            <div className="hidden sm:flex">
+            {modo === 'mensal' && <div className="hidden sm:flex">
               <button
                 disabled={!isRegistered}
                 onClick={() => updateCustoVariavel(custo.id, { frequencia: 'mensal' })}
-                className={`px-2 py-1 text-[10px] font-medium rounded-l-lg border transition-colors ${
+                className={`px-3 py-2 text-xs min-h-10 font-medium rounded-l-lg border transition-colors ${
                   !isAnual
                     ? 'bg-primary/10 text-primary border-primary/30'
                     : 'bg-muted/30 text-muted-foreground border-border hover:bg-muted/50'
@@ -385,7 +404,7 @@ export default function Custos() {
               <button
                 disabled={!isRegistered}
                 onClick={() => updateCustoVariavel(custo.id, { frequencia: 'anual' })}
-                className={`px-2 py-1 text-[10px] font-medium rounded-r-lg border-t border-b border-r transition-colors ${
+                className={`px-3 py-2 text-xs min-h-10 font-medium rounded-r-lg border-t border-b border-r transition-colors ${
                   isAnual
                     ? 'bg-sage/10 text-sage-dark border-sage/30'
                     : 'bg-muted/30 text-muted-foreground border-border hover:bg-muted/50'
@@ -393,17 +412,33 @@ export default function Custos() {
               >
                 Anual
               </button>
-            </div>
+            </div>}
 
             <div className="w-[140px] sm:w-[160px]">
-              <CurrencyInput
-                value={custo.valor}
-                onChange={(v) => {
-                  if (!isRegistered) { toast.error('Faça login para editar'); return; }
-                  updateCustoVariavel(custo.id, { valor: v });
-                }}
-                disabled={!isRegistered}
-              />
+              {modo === 'percentual_receita' ? (
+                <div className="relative">
+                  <Input
+                    type="number"
+                    value={((custo.percentual || 0) * 100).toString()}
+                    onChange={(e) => updateCustoVariavel(custo.id, { percentual: Math.max(0, Math.min((parseFloat(e.target.value) || 0) / 100, 1)) })}
+                    min={0}
+                    max={100}
+                    step={0.1}
+                    disabled={!isRegistered}
+                    className="rounded-xl pr-8 font-mono"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">%</span>
+                </div>
+              ) : (
+                <CurrencyInput
+                  value={custo.valor}
+                  onChange={(v) => {
+                    if (!isRegistered) { toast.error('Faça login para editar'); return; }
+                    updateCustoVariavel(custo.id, { valor: v });
+                  }}
+                  disabled={!isRegistered}
+                />
+              )}
             </div>
 
             <ConfirmAction
@@ -427,11 +462,11 @@ export default function Custos() {
           </div>
         </div>
 
-        <div className="flex sm:hidden mt-2 gap-1">
+        {modo === 'mensal' && <div className="flex sm:hidden mt-2 gap-1">
           <button
             disabled={!isRegistered}
             onClick={() => updateCustoVariavel(custo.id, { frequencia: 'mensal' })}
-            className={`flex-1 px-2 py-1 text-[10px] font-medium rounded-l-lg border transition-colors ${
+            className={`flex-1 px-3 py-2 text-xs min-h-10 font-medium rounded-l-lg border transition-colors ${
               !isAnual
                 ? 'bg-primary/10 text-primary border-primary/30'
                 : 'bg-muted/30 text-muted-foreground border-border'
@@ -442,7 +477,7 @@ export default function Custos() {
           <button
             disabled={!isRegistered}
             onClick={() => updateCustoVariavel(custo.id, { frequencia: 'anual' })}
-            className={`flex-1 px-2 py-1 text-[10px] font-medium rounded-r-lg border-t border-b border-r transition-colors ${
+            className={`flex-1 px-3 py-2 text-xs min-h-10 font-medium rounded-r-lg border-t border-b border-r transition-colors ${
               isAnual
                 ? 'bg-sage/10 text-sage-dark border-sage/30'
                 : 'bg-muted/30 text-muted-foreground border-border'
@@ -450,7 +485,7 @@ export default function Custos() {
           >
             <CalendarDays className="w-3 h-3 inline mr-1" />Anual
           </button>
-        </div>
+        </div>}
       </motion.div>
     );
   };
@@ -643,11 +678,11 @@ export default function Custos() {
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/30 rounded-2xl p-3 flex items-start gap-3"
+            className="bg-golden-light/40 border border-golden/30 rounded-2xl p-3 flex items-start gap-3"
           >
-            <ShieldAlert className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+            <ShieldAlert className="w-5 h-5 text-terracotta-dark flex-shrink-0 mt-0.5" />
             <div className="text-sm text-foreground/80">
-              <p className="font-medium text-amber-700 dark:text-amber-400 mb-0.5">Depreciação vs Financiamento</p>
+              <p className="font-medium text-terracotta-dark mb-0.5">Depreciação vs Financiamento</p>
               <p className="text-xs">
                 <strong>Depreciação</strong> é a perda de valor de um equipamento ao longo do tempo (ex: maca comprada por R$ 3.000, vida útil de 5 anos = R$ 50/mês).
                 Se o equipamento ainda está sendo <strong>financiado</strong> (parcela ativa), a depreciação é bloqueada — a parcela já entra como custo operacional.
@@ -775,7 +810,7 @@ export default function Custos() {
         <DialogContent className="rounded-2xl">
           <DialogHeader>
             <DialogTitle className="font-heading flex items-center gap-2">
-              <ShieldAlert className="w-5 h-5 text-amber-600" />
+              <ShieldAlert className="w-5 h-5 text-terracotta-dark" />
               Classificação inteligente
             </DialogTitle>
           </DialogHeader>

@@ -240,14 +240,14 @@ export default function Reservas({ asTab = false }: ReservasProps) {
                 alert.type === 'danger'
                   ? 'bg-destructive/5 border-destructive/20'
                   : alert.type === 'warning'
-                  ? 'bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800/30'
+                  ? 'bg-golden-light/40 border-golden/30'
                   : 'bg-sage/5 border-sage/20'
               }`}
             >
               {alert.type === 'danger' ? (
                 <AlertTriangle className="w-4 h-4 text-destructive flex-shrink-0 mt-0.5" />
               ) : alert.type === 'warning' ? (
-                <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                <AlertTriangle className="w-4 h-4 text-terracotta-dark flex-shrink-0 mt-0.5" />
               ) : (
                 <ShieldCheck className="w-4 h-4 text-sage-dark flex-shrink-0 mt-0.5" />
               )}
@@ -325,7 +325,7 @@ export default function Reservas({ asTab = false }: ReservasProps) {
                       <button
                         disabled={!isRegistered}
                         onClick={() => updateReserva(reserva.id, { modo: 'fixo' })}
-                        className={`px-2 py-1 text-[10px] font-medium rounded-l-lg border transition-colors ${
+                        className={`px-3 py-2 text-xs min-h-10 font-medium rounded-l-lg border transition-colors ${
                           reserva.modo !== 'percentual'
                             ? 'bg-primary/10 text-primary border-primary/30'
                             : 'bg-muted/30 text-muted-foreground border-border hover:bg-muted/50'
@@ -336,7 +336,7 @@ export default function Reservas({ asTab = false }: ReservasProps) {
                       <button
                         disabled={!isRegistered}
                         onClick={() => updateReserva(reserva.id, { modo: 'percentual', percentual: reserva.percentual || 0.05 })}
-                        className={`px-2 py-1 text-[10px] font-medium rounded-r-lg border-t border-b border-r transition-colors ${
+                        className={`px-3 py-2 text-xs min-h-10 font-medium rounded-r-lg border-t border-b border-r transition-colors ${
                           reserva.modo === 'percentual'
                             ? 'bg-sage/10 text-sage-dark border-sage/30'
                             : 'bg-muted/30 text-muted-foreground border-border hover:bg-muted/50'
@@ -424,7 +424,7 @@ export default function Reservas({ asTab = false }: ReservasProps) {
           </div>
           <div className="flex justify-between items-center py-2 border-b border-border/50">
             <span className="text-sm text-muted-foreground">− Impostos ({(data.impostoPercentual * 100).toFixed(0)}%)</span>
-            <span className="font-mono font-medium text-amber-600">−{formatarMoeda(m.impostosMensal)}</span>
+            <span className="font-mono font-medium text-terracotta-dark">−{formatarMoeda(m.impostosMensal)}</span>
           </div>
           <div className="flex justify-between items-center py-2 border-b border-border/50">
             <span className="text-sm text-muted-foreground">− Custos Operacionais</span>
@@ -438,7 +438,7 @@ export default function Reservas({ asTab = false }: ReservasProps) {
           </div>
           <div className="flex justify-between items-center py-2 border-b border-border/50">
             <span className="text-sm text-muted-foreground">− Reservas Estratégicas</span>
-            <span className="font-mono font-medium text-amber-600">−{formatarMoeda(totalReservas)}</span>
+            <span className="font-mono font-medium text-terracotta-dark">−{formatarMoeda(totalReservas)}</span>
           </div>
           <div className="flex justify-between items-center py-2 bg-sage/5 -mx-5 px-5 rounded-b-xl">
             <div>

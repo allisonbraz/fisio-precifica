@@ -47,12 +47,14 @@ import {
   ResponsiveContainer,
   Legend,
 } from 'recharts';
-import { CHART_TOOLTIP_STYLE } from '@/lib/utils';
+import { CHART_TOOLTIP_STYLE, getChartColors } from '@/lib/utils';
 
 export default function Relatorios() {
   const { data, addRegistroMensal, updateRegistroMensal, removeRegistroMensal } = useData();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<RegistroMensal | null>(null);
+
+  const chartColors = useMemo(() => getChartColors(), []);
 
   const [mes, setMes] = useState(() => {
     const now = new Date();
@@ -156,9 +158,9 @@ export default function Relatorios() {
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/30 rounded-xl p-3 flex items-start gap-3"
+        className="bg-golden-light/40 border border-golden/30 rounded-xl p-3 flex items-start gap-3"
       >
-        <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+        <AlertTriangle className="w-4 h-4 text-terracotta-dark flex-shrink-0 mt-0.5" />
         <p className="text-xs text-foreground/80">
           <strong>Importante:</strong> Os valores registrados aqui são para acompanhamento pessoal e não substituem contabilidade profissional. Os cálculos de impostos são estimativas baseadas no regime tributário selecionado — consulte seu contador para apuração fiscal exata.
         </p>
@@ -175,17 +177,17 @@ export default function Relatorios() {
           <div className="h-[280px]">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e0d8" />
-                <XAxis dataKey="mes" tick={{ fontSize: 12 }} stroke="#8a7e74" />
-                <YAxis tick={{ fontSize: 12 }} stroke="#8a7e74" tickFormatter={(v) => `R$${(v/1000).toFixed(0)}k`} />
+                <CartesianGrid strokeDasharray="3 3" stroke={chartColors.grid} />
+                <XAxis dataKey="mes" tick={{ fontSize: 12, fill: chartColors.axis }} stroke={chartColors.axis} />
+                <YAxis tick={{ fontSize: 12, fill: chartColors.axis }} stroke={chartColors.axis} tickFormatter={(v) => `R$${(v/1000).toFixed(0)}k`} />
                 <Tooltip
                   formatter={(value: number) => formatarMoeda(value)}
                   contentStyle={CHART_TOOLTIP_STYLE}
                 />
                 <Legend />
-                <Line type="monotone" dataKey="receita" name="Receita" stroke="#7c9a82" strokeWidth={2} dot={{ fill: '#7c9a82' }} />
-                <Line type="monotone" dataKey="custo" name="Custo" stroke="#c2785c" strokeWidth={2} dot={{ fill: '#c2785c' }} />
-                <Line type="monotone" dataKey="lucro" name="Lucro" stroke="#d4a853" strokeWidth={2} dot={{ fill: '#d4a853' }} />
+                <Line type="monotone" dataKey="receita" name="Receita" stroke={chartColors.chart2} strokeWidth={2} dot={{ fill: chartColors.chart2 }} />
+                <Line type="monotone" dataKey="custo" name="Custo" stroke={chartColors.chart1} strokeWidth={2} dot={{ fill: chartColors.chart1 }} />
+                <Line type="monotone" dataKey="lucro" name="Lucro" stroke={chartColors.chart3} strokeWidth={2} dot={{ fill: chartColors.chart3 }} />
               </LineChart>
             </ResponsiveContainer>
           </div>

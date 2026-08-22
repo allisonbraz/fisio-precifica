@@ -45,17 +45,17 @@ import {
   CartesianGrid,
   Tooltip,
 } from 'recharts';
-import { CHART_TOOLTIP_STYLE } from '@/lib/utils';
+import { CHART_TOOLTIP_STYLE, getChartColors, getChartPalette } from '@/lib/utils';
 
 /** Hero logo */
 const HERO_IMG = "/logo-fisio.png";
-
-const PIE_COLORS = ['#b5725d', '#7c9a82', '#d4a853', '#c2785c', '#5a7d64'];
 
 export default function Home() {
   const { data } = useData();
 
   const metrics = useMetrics(data);
+  const chartPalette = useMemo(() => getChartPalette(), []);
+  const chartColors = useMemo(() => getChartColors(), []);
 
   const pieData = useMemo(() => {
     const topCustos = [...data.custosFixos, ...data.custosVariaveis]
@@ -77,10 +77,10 @@ export default function Home() {
 
   // Progress tracker steps
   const progressSteps = useMemo(() => {
-    const hasCustos = data.custosFixos.some(c => c.valor > 0) || data.custosVariaveis.some(c => c.valor > 0);
-    const hasMargem = data.margemLucro > 0;
+    const hasCustos = data.etapasConcluidas?.custos === true;
+    const hasMargem = data.etapasConcluidas?.precificacao === true;
     const hasPreco = data.precoDefinido > 0;
-    const hasServico = data.tiposServico.length > 0;
+    const hasServico = data.etapasConcluidas?.servicos === true;
 
     return [
       { label: 'Cadastrar seus custos', done: hasCustos, href: '/custos' },
@@ -159,7 +159,7 @@ export default function Home() {
               <span className="text-gradient">quanto cobrar</span>
             </h2>
             <p className="text-muted-foreground max-w-md leading-relaxed">
-              Calcule o preço ideal dos seus serviços de fisioterapia com base nos seus custos reais. Nunca mais cobre abaixo do necessário.
+              Conheça seu piso operacional, seu preço sustentável e o preço estratégico com base nos custos reais.
             </p>
             <div className="flex flex-wrap gap-3 pt-2">
               <Link href="/custos">
@@ -275,7 +275,7 @@ export default function Home() {
                       dataKey="value"
                     >
                       {pieData.map((_, index) => (
-                        <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                        <Cell key={`cell-${index}`} fill={chartPalette[index % chartPalette.length]} />
                       ))}
                     </Pie>
                     <Tooltip
@@ -291,7 +291,7 @@ export default function Home() {
                     <div className="flex items-center gap-2">
                       <div
                         className="w-3 h-3 rounded-full"
-                        style={{ backgroundColor: PIE_COLORS[i % PIE_COLORS.length] }}
+                        style={{ backgroundColor: chartPalette[i % chartPalette.length] }}
                       />
                       <span className="text-muted-foreground truncate max-w-[180px]">{item.name}</span>
                     </div>
@@ -315,18 +315,18 @@ export default function Home() {
             <div className="h-[320px]">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={simulacaoData} barCategoryGap="20%">
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e0d8" />
-                  <XAxis dataKey="preco" tick={{ fontSize: 12 }} stroke="#8a7e74" />
+                  <CartesianGrid strokeDasharray="3 3" stroke={chartColors.grid} />
+                  <XAxis dataKey="preco" tick={{ fontSize: 12 }} stroke={chartColors.axis} />
                   <YAxis
                     tick={{ fontSize: 12 }}
-                    stroke="#8a7e74"
+                    stroke={chartColors.axis}
                     tickFormatter={(v) => `R$${(v / 1000).toFixed(0)}k`}
                   />
                   <Tooltip
                     formatter={(value: number) => formatarMoeda(value)}
                     contentStyle={CHART_TOOLTIP_STYLE}
                   />
-                  <Bar dataKey="lucro" name="Lucro" fill="#7c9a82" radius={[6, 6, 0, 0]} />
+                  <Bar dataKey="lucro" name="Lucro" fill={chartColors.chart2} radius={[6, 6, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>

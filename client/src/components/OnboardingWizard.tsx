@@ -21,7 +21,7 @@ const steps = [
   {
     icon: Calculator,
     title: 'Bem-vindo ao FisioPrecifica!',
-    description: 'Vamos te ajudar a calcular o preço ideal dos seus serviços de fisioterapia em poucos passos.',
+    description: 'Vamos calcular seu piso operacional, seu preço sustentável e o preço estratégico em poucos passos.',
     cta: 'Começar',
     href: null,
   },
@@ -73,8 +73,9 @@ export default function OnboardingWizard({ isRegistered }: OnboardingWizardProps
 
   const handleCTA = () => {
     if (step.href) {
-      handleClose();
       setLocation(step.href);
+      if (isLast) handleClose();
+      else setCurrentStep(currentStep + 1);
     } else if (!isLast) {
       setCurrentStep(currentStep + 1);
     } else {
@@ -91,11 +92,12 @@ export default function OnboardingWizard({ isRegistered }: OnboardingWizardProps
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/50 backdrop-blur-sm p-4">
       <motion.div
-        initial={{ opacity: 0, scale: 0.9 }}
+        initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="bg-card rounded-3xl border border-border shadow-2xl max-w-md w-full overflow-hidden"
+        transition={{ duration: 0.2, ease: 'easeOut' }}
+        className="bg-card rounded-3xl border border-border shadow-lg max-w-md w-full overflow-hidden"
       >
         <div className="p-8 text-center">
           <AnimatePresence mode="wait">
@@ -120,7 +122,7 @@ export default function OnboardingWizard({ isRegistered }: OnboardingWizardProps
               {step.cta}
             </Button>
             <button
-              onClick={step.href ? handleNext : handleClose}
+              onClick={handleNext}
               className="text-xs text-muted-foreground hover:text-foreground transition-colors"
             >
               {isLast ? 'Fechar' : 'Pular'}

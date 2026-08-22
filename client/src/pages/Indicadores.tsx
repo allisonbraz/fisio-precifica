@@ -30,6 +30,7 @@ import StatCard from '@/components/StatCard';
 import { useData } from '@/contexts/DataContext';
 import { useMetrics } from '@/lib/useMetrics';
 import { formatarMoeda, getValorMensal } from '@/lib/store';
+import { getChartColors } from '@/lib/utils';
 import {
   RadarChart,
   PolarGrid,
@@ -73,11 +74,13 @@ export default function Indicadores() {
 
   const m = useMetrics(data);
 
+  const chartColors = useMemo(() => getChartColors(), []);
+
   const metrics = useMemo(() => {
     const custoFixoTotal = m.custoFixoTotal;
     const custoMensal = m.custoTotalMensal;
     const margemLiquida = m.receitaBruta > 0
-      ? ((m.receitaBruta - m.impostosMensal - m.custoOperacionalMensal) / m.receitaBruta) * 100
+      ? (m.lucroDisponivel / m.receitaBruta) * 100
       : 0;
     const custoFixoPerc = custoMensal > 0 ? (custoFixoTotal / custoMensal) * 100 : 0;
     const custoVarPerc = custoMensal > 0 ? (m.custoVarTotal / custoMensal) * 100 : 0;
@@ -155,9 +158,9 @@ export default function Indicadores() {
 
   // Determine score color and label
   const getScoreColor = (value: number) => {
-    if (value >= 70) return '#7c9a82';
-    if (value >= 40) return '#d4a853';
-    return '#c2785c';
+    if (value >= 70) return chartColors.chart2;
+    if (value >= 40) return chartColors.chart3;
+    return chartColors.chart1;
   };
 
   const getScoreLabel = (value: number) => {
@@ -222,7 +225,7 @@ export default function Indicadores() {
             <div className="flex items-center gap-4 mb-5">
               <div className="relative w-24 h-24 flex-shrink-0">
                 <svg className="w-24 h-24 -rotate-90" viewBox="0 0 100 100">
-                  <circle cx="50" cy="50" r="42" fill="none" stroke="#e5e0d8" strokeWidth="8" />
+                  <circle cx="50" cy="50" r="42" fill="none" stroke={chartColors.grid} strokeWidth="8" />
                   <circle
                     cx="50" cy="50" r="42" fill="none"
                     stroke={getScoreColor(metrics.saudeFinanceira)}
@@ -280,14 +283,14 @@ export default function Indicadores() {
           <div className="h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
               <RadarChart data={radarData}>
-                <PolarGrid stroke="#e5e0d8" />
-                <PolarAngleAxis dataKey="subject" tick={{ fontSize: 11, fill: '#8a7e74' }} />
+                <PolarGrid stroke={chartColors.grid} />
+                <PolarAngleAxis dataKey="subject" tick={{ fontSize: 11, fill: chartColors.axis }} />
                 <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} />
                 <Radar
                   name="Score"
                   dataKey="value"
-                  stroke="#c2785c"
-                  fill="#c2785c"
+                  stroke={chartColors.chart1}
+                  fill={chartColors.chart1}
                   fillOpacity={0.2}
                   strokeWidth={2}
                 />
@@ -300,7 +303,7 @@ export default function Indicadores() {
       {/* KPI Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard title="Faturamento/Hora" value={formatarMoeda(metrics.faturamentoPorHora)} subtitle={`${metrics.horasMensais}h/mês trabalhadas`} icon={Clock} variant="primary" />
-        <StatCard title="Margem Líquida" value={`${metrics.margemLiquida.toFixed(1)}%`} subtitle={metrics.margemLiquida >= 30 ? 'Excelente' : metrics.margemLiquida >= 15 ? 'Saudável' : 'Arriscada'} icon={Percent} variant={metrics.margemLiquida >= 15 ? 'success' : 'warning'} />
+        <StatCard title="Margem Disponível" value={`${metrics.margemLiquida.toFixed(1)}%`} subtitle="Após custos, tributos e reservas" icon={Percent} variant={metrics.margemLiquida >= 15 ? 'success' : 'warning'} />
         <StatCard title="Capacidade Máxima" value={`${metrics.capacidadeMaxima} sessões`} subtitle={`${data.diasUteis} dias × ${data.sessoesporDia} sessões`} icon={Users} variant="default" />
         <StatCard title="Custo Fixo/Sessão" value={formatarMoeda(metrics.custoFixoPorSessao)} subtitle={`${metrics.custoFixoPerc.toFixed(0)}% do custo total`} icon={DollarSign} variant="default" />
       </div>

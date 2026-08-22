@@ -82,7 +82,7 @@ function ChangeEmailModal({
   });
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/50 backdrop-blur-sm" onClick={onClose}>
       <div
         className="bg-card rounded-2xl border border-border p-6 w-full max-w-md mx-4 space-y-4"
         onClick={(e) => e.stopPropagation()}

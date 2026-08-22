@@ -46,11 +46,14 @@ import {
   ComposedChart,
   Bar,
 } from 'recharts';
-import { CHART_TOOLTIP_STYLE } from '@/lib/utils';
+import { CHART_TOOLTIP_STYLE, getChartColors, getChartPalette } from '@/lib/utils';
 
 export default function Simulacao() {
   const { data } = useData();
   const [precoCustom, setPrecoCustom] = useState(150);
+
+  const chartColors = useMemo(() => getChartColors(), []);
+  const chartPalette = useMemo(() => getChartPalette(), []);
 
   const precoPorSessao = calcularPrecoMinimo(data);
   const custoSessao = calcularCustoTotalPorSessao(data);
@@ -247,7 +250,7 @@ export default function Simulacao() {
               </div>
               <div className="bg-muted/30 rounded-xl p-3">
                 <p className="text-xs text-muted-foreground">Impostos</p>
-                <p className="text-lg font-mono font-bold text-amber-600">−{formatarMoeda(customSim.impostos)}</p>
+                <p className="text-lg font-mono font-bold text-terracotta-dark">−{formatarMoeda(customSim.impostos)}</p>
                 <p className="text-[10px] text-muted-foreground mt-0.5">{(data.impostoPercentual * 100).toFixed(0)}% sobre receita</p>
               </div>
               <div className="bg-muted/30 rounded-xl p-3">
@@ -297,17 +300,17 @@ export default function Simulacao() {
             <ComposedChart data={chartData}>
               <defs>
                 <linearGradient id="colorReceita" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#7c9a82" stopOpacity={0.3}/>
-                  <stop offset="95%" stopColor="#7c9a82" stopOpacity={0}/>
+                  <stop offset="5%" stopColor={chartColors.chart2} stopOpacity={0.3}/>
+                  <stop offset="95%" stopColor={chartColors.chart2} stopOpacity={0}/>
                 </linearGradient>
                 <linearGradient id="colorLucro" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#d4a853" stopOpacity={0.3}/>
-                  <stop offset="95%" stopColor="#d4a853" stopOpacity={0}/>
+                  <stop offset="5%" stopColor={chartColors.chart3} stopOpacity={0.3}/>
+                  <stop offset="95%" stopColor={chartColors.chart3} stopOpacity={0}/>
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e5e0d8" />
-              <XAxis dataKey="preco" tick={{ fontSize: 12 }} stroke="#8a7e74" tickFormatter={(v) => `R$${v}`} />
-              <YAxis tick={{ fontSize: 12 }} stroke="#8a7e74" tickFormatter={(v) => `R$${(v/1000).toFixed(0)}k`} />
+              <CartesianGrid strokeDasharray="3 3" stroke={chartColors.grid} />
+              <XAxis dataKey="preco" tick={{ fontSize: 12, fill: chartColors.axis }} stroke={chartColors.axis} tickFormatter={(v) => `R$${v}`} />
+              <YAxis tick={{ fontSize: 12, fill: chartColors.axis }} stroke={chartColors.axis} tickFormatter={(v) => `R$${(v/1000).toFixed(0)}k`} />
               <Tooltip
                 formatter={(value: number, name: string) => {
                   const labels: Record<string, string> = { receita: 'Receita', custo: 'Custo Mensal', lucro: 'Lucro' };
@@ -317,21 +320,21 @@ export default function Simulacao() {
                 contentStyle={CHART_TOOLTIP_STYLE}
               />
               {/* Custo line (constant) — this is the key fix */}
-              <Line type="monotone" dataKey="custo" stroke="#c2785c" strokeWidth={2} strokeDasharray="8 4" dot={false} name="custo" />
+              <Line type="monotone" dataKey="custo" stroke={chartColors.chart1} strokeWidth={2} strokeDasharray="8 4" dot={false} name="custo" />
               {/* Reference line for current custom price */}
-              <ReferenceLine x={Math.round(precoCustom / 10) * 10} stroke="#b5725d" strokeDasharray="5 5" label={{ value: `Seu preço`, position: 'top', fill: '#b5725d', fontSize: 11 }} />
+              <ReferenceLine x={Math.round(precoCustom / 10) * 10} stroke={chartColors.chart1} strokeDasharray="5 5" label={{ value: `Seu preço`, position: 'top', fill: chartColors.chart1, fontSize: 11 }} />
               {/* Receita area */}
-              <Area type="monotone" dataKey="receita" stroke="#7c9a82" fill="url(#colorReceita)" strokeWidth={2} name="receita" />
+              <Area type="monotone" dataKey="receita" stroke={chartColors.chart2} fill="url(#colorReceita)" strokeWidth={2} name="receita" />
               {/* Lucro area */}
-              <Area type="monotone" dataKey="lucro" stroke="#d4a853" fill="url(#colorLucro)" strokeWidth={2} name="lucro" />
+              <Area type="monotone" dataKey="lucro" stroke={chartColors.chart3} fill="url(#colorLucro)" strokeWidth={2} name="lucro" />
             </ComposedChart>
           </ResponsiveContainer>
         </div>
         <div className="flex flex-wrap gap-4 mt-3 text-xs text-muted-foreground">
-          <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 bg-[#7c9a82] rounded inline-block" /> Receita</span>
-          <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 bg-[#d4a853] rounded inline-block" /> Lucro</span>
-          <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 bg-[#c2785c] rounded inline-block border-dashed" style={{ borderTop: '2px dashed #c2785c', height: 0 }} /> Custo Mensal</span>
-          <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 bg-[#b5725d] rounded inline-block border-dashed" style={{ borderTop: '2px dashed #b5725d', height: 0 }} /> Seu Preço</span>
+          <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 bg-sage rounded inline-block" /> Receita</span>
+          <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 bg-golden rounded inline-block" /> Lucro</span>
+          <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 bg-terracotta rounded inline-block border-dashed" style={{ borderTop: `2px dashed ${chartColors.chart1}`, height: 0 }} /> Custo Mensal</span>
+          <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 bg-terracotta rounded inline-block border-dashed" style={{ borderTop: `2px dashed ${chartColors.chart1}`, height: 0 }} /> Seu Preço</span>
         </div>
       </motion.div>
 
@@ -369,7 +372,7 @@ export default function Simulacao() {
                   </div>
                   <div className="flex justify-between text-xs">
                     <span className="text-muted-foreground">Impostos:</span>
-                    <span className="font-mono font-medium text-amber-600">−{formatarMoeda(cenario.data.impostos)}</span>
+                    <span className="font-mono font-medium text-terracotta-dark">−{formatarMoeda(cenario.data.impostos)}</span>
                   </div>
                   <div className="flex justify-between text-xs">
                     <span className="text-muted-foreground">Lucro Disponível:</span>
@@ -445,9 +448,9 @@ export default function Simulacao() {
         <div className="h-[220px]">
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart data={occupancyChartData} barGap={4}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e5e0d8" />
-              <XAxis dataKey="name" tick={{ fontSize: 11 }} stroke="#8a7e74" />
-              <YAxis tick={{ fontSize: 11 }} stroke="#8a7e74" tickFormatter={(v) => `R$${(v/1000).toFixed(0)}k`} />
+              <CartesianGrid strokeDasharray="3 3" stroke={chartColors.grid} />
+              <XAxis dataKey="name" tick={{ fontSize: 11, fill: chartColors.axis }} stroke={chartColors.axis} />
+              <YAxis tick={{ fontSize: 11, fill: chartColors.axis }} stroke={chartColors.axis} tickFormatter={(v) => `R$${(v/1000).toFixed(0)}k`} />
               <Tooltip
                 formatter={(value: number, name: string) => {
                   const labels: Record<string, string> = { receita: 'Receita', custo: 'Custo', lucro: 'Lucro' };
@@ -455,16 +458,16 @@ export default function Simulacao() {
                 }}
                 contentStyle={CHART_TOOLTIP_STYLE}
               />
-              <Bar dataKey="receita" fill="#7c9a82" radius={[6, 6, 0, 0]} name="receita" />
-              <Bar dataKey="lucro" fill="#d4a853" radius={[6, 6, 0, 0]} name="lucro" />
-              <Line type="monotone" dataKey="custo" stroke="#c2785c" strokeWidth={2} strokeDasharray="6 3" dot={{ r: 4, fill: '#c2785c' }} name="custo" />
+              <Bar dataKey="receita" fill={chartColors.chart2} radius={[6, 6, 0, 0]} name="receita" />
+              <Bar dataKey="lucro" fill={chartColors.chart3} radius={[6, 6, 0, 0]} name="lucro" />
+              <Line type="monotone" dataKey="custo" stroke={chartColors.chart1} strokeWidth={2} strokeDasharray="6 3" dot={{ r: 4, fill: chartColors.chart1 }} name="custo" />
             </ComposedChart>
           </ResponsiveContainer>
         </div>
         <div className="flex flex-wrap gap-4 mt-2 text-xs text-muted-foreground">
-          <span className="flex items-center gap-1.5"><span className="w-3 h-3 bg-[#7c9a82] rounded inline-block" /> Receita</span>
-          <span className="flex items-center gap-1.5"><span className="w-3 h-3 bg-[#d4a853] rounded inline-block" /> Lucro</span>
-          <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 bg-[#c2785c] rounded inline-block" style={{ borderTop: '2px dashed #c2785c', height: 0 }} /> Custo</span>
+          <span className="flex items-center gap-1.5"><span className="w-3 h-3 bg-sage rounded inline-block" /> Receita</span>
+          <span className="flex items-center gap-1.5"><span className="w-3 h-3 bg-golden rounded inline-block" /> Lucro</span>
+          <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 bg-terracotta rounded inline-block" style={{ borderTop: `2px dashed ${chartColors.chart1}`, height: 0 }} /> Custo</span>
         </div>
       </motion.div>
 

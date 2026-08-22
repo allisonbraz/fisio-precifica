@@ -44,6 +44,7 @@ import { useData } from '@/contexts/DataContext';
 import { useMetrics } from '@/lib/useMetrics';
 import {
   calcularCustoTotalPorSessao,
+  calcularPrecoEstrategico,
   calcularMargemDoPreco,
   sugerirSessoesPorDia,
   formatarMoeda,
@@ -59,7 +60,7 @@ import {
   ResponsiveContainer,
   Cell,
 } from 'recharts';
-import { CHART_TOOLTIP_STYLE } from '@/lib/utils';
+import { CHART_TOOLTIP_STYLE, getChartColors, getChartPalette } from '@/lib/utils';
 import { toast } from 'sonner';
 
 function getMarginBand(marginPercent: number): { label: string; color: string; bgColor: string; icon: typeof CheckCircle2; description: string } {
@@ -125,6 +126,9 @@ export default function Precificacao() {
   const [fromSimulation, setFromSimulation] = useState(false);
   const [simulationPrice, setSimulationPrice] = useState(0);
 
+  const chartColors = useMemo(() => getChartColors(), []);
+  const chartPalette = useMemo(() => getChartPalette(), []);
+
   const metrics = useMetrics(data);
 
   // Read price from URL (coming from Simulação page)
@@ -161,12 +165,8 @@ export default function Precificacao() {
     const newMargem = margem / 100;
     updateMargemLucro(newMargem);
     // Recalculate price from new margin
-    const custoPorSessao = calcularCustoTotalPorSessao(data);
-    const divisor = 1 - newMargem - data.impostoPercentual;
-    if (divisor > 0.05) {
-      const newPrice = custoPorSessao / divisor;
-      updatePrecoDefinido(Math.round(newPrice * 100) / 100);
-    }
+    const newPrice = calcularPrecoEstrategico({ ...data, margemLucro: newMargem });
+    updatePrecoDefinido(Math.round(newPrice * 100) / 100);
   }, [data, isRegistered, updateMargemLucro, updatePrecoDefinido]);
 
   const handlePrecoChange = useCallback((preco: number) => {
@@ -180,12 +180,12 @@ export default function Precificacao() {
   const sessaoSugerida = sugerirSessoesPorDia(data.horasTrabalho, data.duracaoPadraoMinutos);
 
   const breakdownData = useMemo(() => [
-    { name: 'Custo Fixo', valor: metrics.custoFixoSessao, fill: '#b5725d' },
-    { name: 'Custo Variável', valor: metrics.custoVarSessao, fill: '#d4a853' },
-    { name: 'Reservas', valor: metrics.reservaSessao, fill: '#8b7355' },
-    { name: 'Impostos', valor: metrics.impostoPorSessao, fill: '#a0a0a0' },
-    { name: 'Lucro', valor: Math.max(0, metrics.lucroPorSessao), fill: '#7c9a82' },
-  ], [metrics]);
+    { name: 'Custo Fixo', valor: metrics.custoFixoSessao, fill: chartPalette[0] },
+    { name: 'Custo Variável', valor: metrics.custoVarSessao, fill: chartPalette[2] },
+    { name: 'Reservas', valor: metrics.reservaSessao, fill: chartPalette[3] ?? chartColors.axis },
+    { name: 'Impostos', valor: metrics.impostoPorSessao, fill: chartColors.axis },
+    { name: 'Lucro', valor: Math.max(0, metrics.lucroPorSessao), fill: chartPalette[1] },
+  ], [metrics, chartPalette, chartColors]);
 
   const isAbaixoCusto = data.precoDefinido > 0 && data.precoDefinido < metrics.custoTotalSessao;
   const peOcupacao = metrics.capacidadeMaxima > 0
@@ -196,7 +196,7 @@ export default function Precificacao() {
     <div className="space-y-6">
       <PageHeader
         title="Cálculo de Precificação"
-        description="Defina o preço ideal com base nos seus custos reais, impostos e margem de lucro"
+        description="Compare o piso operacional, o preço sustentável e o preço estratégico"
         icon={Calculator}
       />
 
@@ -228,7 +228,7 @@ export default function Precificacao() {
         {/* Left: Parameters */}
         <div className="lg:col-span-1 space-y-4">
           {!isRegistered && (
-            <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/30 rounded-xl p-3 text-xs text-amber-700 dark:text-amber-400">
+            <div className="bg-golden-light/40 border border-golden/30 rounded-xl p-3 text-xs text-terracotta-dark">
               Faça login para editar os campos abaixo.
             </div>
           )}
@@ -271,7 +271,7 @@ export default function Precificacao() {
               {REGIMES_TRIBUTARIOS.find(r => r.value === data.regimeTributario)?.desc}
             </p>
 
-            {data.regimeTributario === 'personalizado' && (
+            {(
               <div>
                 <label className="text-xs font-medium text-muted-foreground mb-1 block">Alíquota (%)</label>
                 <Input
@@ -519,18 +519,18 @@ export default function Precificacao() {
 
         {/* Right: Results */}
         <div className="lg:col-span-2 space-y-4">
-          {/* Two-card result: Custo vs Preço */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* Três níveis de decisão */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               className="bg-gradient-to-br from-terracotta/5 via-card to-terracotta/10 rounded-2xl border border-border p-6 text-center"
             >
-              <p className="text-sm text-muted-foreground font-medium">Custo por Sessão</p>
+              <p className="text-sm text-muted-foreground font-medium">Piso operacional</p>
               <p className="text-3xl lg:text-4xl font-heading font-bold text-terracotta mt-2 font-mono">
-                {formatarMoeda(metrics.custoTotalSessao)}
+                {formatarMoeda(metrics.precoPisoOperacional)}
               </p>
-              <p className="text-xs text-muted-foreground mt-2">Fixos + Variáveis + Reservas</p>
+              <p className="text-xs text-muted-foreground mt-2">Operação + tributos, sem reservas ou lucro</p>
               <div className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-terracotta/10 text-terracotta text-xs font-medium">
                 <AlertTriangle className="w-3.5 h-3.5" />
                 Nunca cobre abaixo deste valor
@@ -540,10 +540,27 @@ export default function Precificacao() {
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.03 }}
+              className="bg-gradient-to-br from-golden/5 via-card to-golden-light/10 rounded-2xl border border-border p-6 text-center"
+            >
+              <p className="text-sm text-muted-foreground font-medium">Preço sustentável</p>
+              <p className="text-3xl lg:text-4xl font-heading font-bold text-golden mt-2 font-mono">
+                {formatarMoeda(metrics.precoSustentavel)}
+              </p>
+              <p className="text-xs text-muted-foreground mt-2">Operação + tributos + reservas planejadas</p>
+              <div className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-golden/10 text-golden text-xs font-medium">
+                <Target className="w-3.5 h-3.5" />
+                Mantém o negócio saudável
+              </div>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: 0.05 }}
               className="bg-gradient-to-br from-sage/5 via-card to-sage-light/10 rounded-2xl border border-border p-6 text-center"
             >
-              <p className="text-sm text-muted-foreground font-medium">Preço por Sessão</p>
+              <p className="text-sm text-muted-foreground font-medium">Preço estratégico</p>
               <p className="text-3xl lg:text-4xl font-heading font-bold text-primary mt-2 font-mono">
                 {formatarMoeda(metrics.precoPorSessao)}
               </p>
@@ -552,7 +569,7 @@ export default function Precificacao() {
               </p>
               <div className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-sage/10 text-sage-dark text-xs font-medium">
                 <CheckCircle2 className="w-3.5 h-3.5" />
-                Valor sugerido para cobrar
+                Inclui sua margem desejada
               </div>
             </motion.div>
           </div>
@@ -579,7 +596,7 @@ export default function Precificacao() {
             </div>
             <div className="bg-card rounded-xl border border-border p-3">
               <p className="text-[10px] text-muted-foreground">Reservas</p>
-              <p className="text-base font-mono font-bold text-[#8b7355] mt-0.5">{formatarMoeda(metrics.reservaSessao)}</p>
+              <p className="text-base font-mono font-bold text-terracotta-dark mt-0.5">{formatarMoeda(metrics.reservaSessao)}</p>
             </div>
             <div className="bg-card rounded-xl border border-border p-3">
               <p className="text-[10px] text-muted-foreground">Impostos</p>
@@ -625,7 +642,7 @@ export default function Precificacao() {
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">− Reservas Estratégicas</span>
-                <span className="font-mono font-medium text-amber-600">−{formatarMoeda(metrics.totalReservas)}</span>
+                <span className="font-mono font-medium text-terracotta-dark">−{formatarMoeda(metrics.totalReservas)}</span>
               </div>
               <div className="flex justify-between text-sm py-1.5 bg-sage/5 -mx-5 px-5 rounded-b-xl border-t border-border/50">
                 <span className="font-bold text-foreground">= Lucro Disponível</span>
@@ -648,10 +665,10 @@ export default function Precificacao() {
               <div>
                 <p className="text-sm font-medium text-foreground">Como o preço é calculado?</p>
                 <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-                  <strong>Preço = Custo Total ÷ (1 − Margem − Impostos)</strong>
+                  <strong>Preço = custos em reais ÷ (1 − percentuais sobre a receita)</strong>
                 </p>
                 <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-                  O custo total inclui custos fixos, variáveis e reservas estratégicas. A margem é o percentual da receita que sobra como lucro. Os impostos são deduzidos da receita automaticamente.
+                  Custos e reservas em reais entram na base. Tributos, taxas variáveis, reservas percentuais e margem entram no denominador, evitando dupla contagem e estimativas circulares.
                 </p>
               </div>
             </div>
@@ -668,9 +685,9 @@ export default function Precificacao() {
             <div className="h-[220px]">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={breakdownData} layout="vertical" barCategoryGap="25%">
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e0d8" horizontal={false} />
-                  <XAxis type="number" tick={{ fontSize: 12 }} stroke="#8a7e74" tickFormatter={(v) => `R$${v.toFixed(0)}`} />
-                  <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} stroke="#8a7e74" width={100} />
+                  <CartesianGrid strokeDasharray="3 3" stroke={chartColors.grid} horizontal={false} />
+                  <XAxis type="number" tick={{ fontSize: 12, fill: chartColors.axis }} stroke={chartColors.axis} tickFormatter={(v) => `R$${v.toFixed(0)}`} />
+                  <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: chartColors.axis }} stroke={chartColors.axis} width={100} />
                   <RechartsTooltip
                     formatter={(value: number) => formatarMoeda(value)}
                     contentStyle={CHART_TOOLTIP_STYLE}
