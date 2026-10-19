@@ -1,239 +1,188 @@
 import type { CustoFixo, CustoVariavel, DadosPrecificacao, FrequenciaCusto, PlanoTratamento, ReservaEstrategica, TipoServico } from './types';
 
-// ===== HELPERS =====
-
 export function getValorMensal(custo: { valor: number; frequencia: FrequenciaCusto }): number {
   return custo.frequencia === 'anual' ? custo.valor / 12 : custo.valor;
 }
 
-// ===== COST AGGREGATIONS =====
-
 export function calcularTotalCustosOperacionais(custos: CustoFixo[]): number {
-  return custos
-    .filter(c => !c.isDepreciacao)
-    .reduce((sum, c) => sum + getValorMensal(c), 0);
+  return custos.filter(c => !c.isDepreciacao).reduce((sum, c) => sum + getValorMensal(c), 0);
 }
 
 export function calcularTotalDepreciacao(custos: CustoFixo[]): number {
-  return custos
-    .filter(c => c.isDepreciacao && !c.temParcelaAtiva)
-    .reduce((sum, c) => sum + getValorMensal(c), 0);
-}
-
-/**
- * Calcula total de reservas. Reservas no modo 'percentual' usam receitaEstimada como base.
- * Se receitaEstimada não for informada, usa apenas o valor fixo.
- */
-export function calcularTotalReservas(reservas: ReservaEstrategica[], receitaEstimada?: number): number {
-  return reservas.reduce((sum, r) => {
-    if (r.modo === 'percentual' && r.percentual && receitaEstimada) {
-      return sum + receitaEstimada * r.percentual;
-    }
-    return sum + getValorMensal(r);
-  }, 0);
+  return custos.filter(c => c.isDepreciacao && !c.temParcelaAtiva).reduce((sum, c) => sum + getValorMensal(c), 0);
 }
 
 export function calcularTotalCustosFixos(custos: CustoFixo[]): number {
   return calcularTotalCustosOperacionais(custos) + calcularTotalDepreciacao(custos);
 }
 
-export function calcularTotalCustosVariaveis(custos: CustoVariavel[]): number {
-  return custos.reduce((sum, c) => sum + getValorMensal(c), 0);
+export function calcularTotalReservas(reservas: ReservaEstrategica[], receita = 0): number {
+  return reservas.reduce((sum, r) => r.modo === 'percentual'
+    ? sum + receita * (r.percentual || 0)
+    : sum + getValorMensal(r), 0);
 }
 
-/** Custo total mensal SEM reservas (para cálculos de lucro operacional / DRE) */
-export function calcularCustoOperacionalMensal(data: DadosPrecificacao): number {
-  return calcularTotalCustosFixos(data.custosFixos) + calcularTotalCustosVariaveis(data.custosVariaveis);
+export function calcularTotalReservasFixas(reservas: ReservaEstrategica[]): number {
+  return reservas.filter(r => r.modo !== 'percentual').reduce((sum, r) => sum + getValorMensal(r), 0);
 }
 
-/** Custo total mensal COM reservas (base para precificação).
- *  Reservas percentuais usam precoDefinido × sessoesMeta como base de receita.
- *  Se precoDefinido = 0, calcula preço somente com reservas fixas primeiro. */
-export function calcularCustoTotalMensal(data: DadosPrecificacao): number {
-  const receitaBase = _estimarReceitaParaReservas(data);
+export function calcularPercentualReservasReceita(reservas: ReservaEstrategica[]): number {
+  return reservas.filter(r => r.modo === 'percentual').reduce((sum, r) => sum + (r.percentual || 0), 0);
+}
+
+export function calcularCustosVariaveisMensais(custos: CustoVariavel[]): number {
+  return custos.filter(c => !c.modo || c.modo === 'mensal').reduce((sum, c) => sum + getValorMensal(c), 0);
+}
+
+export function calcularCustosVariaveisPorSessao(custos: CustoVariavel[]): number {
+  return custos.filter(c => c.modo === 'por_sessao').reduce((sum, c) => sum + c.valor, 0);
+}
+
+export function calcularPercentualCustosVariaveis(custos: CustoVariavel[]): number {
+  return custos.filter(c => c.modo === 'percentual_receita').reduce((sum, c) => sum + (c.percentual || 0), 0);
+}
+
+export function calcularTotalCustosVariaveis(custos: CustoVariavel[], sessoes = 0, receita = 0): number {
+  return calcularCustosVariaveisMensais(custos)
+    + calcularCustosVariaveisPorSessao(custos) * sessoes
+    + calcularPercentualCustosVariaveis(custos) * receita;
+}
+
+export function calcularCustoOperacionalMensal(data: DadosPrecificacao, precoSessao = 0, sessoes = data.sessoesMeta): number {
   return calcularTotalCustosFixos(data.custosFixos)
-    + calcularTotalCustosVariaveis(data.custosVariaveis)
-    + calcularTotalReservas(data.reservasEstrategicas, receitaBase);
+    + calcularTotalCustosVariaveis(data.custosVariaveis, sessoes, precoSessao * sessoes);
 }
 
-/** Estima receita para cálculo de reservas percentuais */
-function _estimarReceitaParaReservas(data: DadosPrecificacao): number {
-  if (data.precoDefinido > 0) return data.precoDefinido * data.sessoesMeta;
-  // Calcula preço só com reservas fixas para evitar circularidade
-  const custoFixo = calcularTotalCustosFixos(data.custosFixos);
-  const custoVar = calcularTotalCustosVariaveis(data.custosVariaveis);
-  const reservasFixas = data.reservasEstrategicas
-    .filter(r => r.modo !== 'percentual')
-    .reduce((sum, r) => sum + getValorMensal(r), 0);
-  const custoBase = data.sessoesMeta > 0
-    ? (custoFixo + custoVar + reservasFixas) / data.sessoesMeta
-    : 0;
-  const divisor = 1 - data.margemLucro - data.impostoPercentual;
-  const precoEstimado = divisor > 0.05 ? custoBase / divisor : custoBase * 10;
-  return precoEstimado * data.sessoesMeta;
+export function calcularCustoTotalMensal(data: DadosPrecificacao, precoSessao = data.precoDefinido): number {
+  const receita = precoSessao * data.sessoesMeta;
+  return calcularCustoOperacionalMensal(data, precoSessao) + calcularTotalReservas(data.reservasEstrategicas, receita);
 }
 
-// ===== PER-SESSION COSTS =====
+function componentes(data: DadosPrecificacao) {
+  const sessoes = Math.max(data.sessoesMeta, 0);
+  const fixos = calcularTotalCustosFixos(data.custosFixos);
+  const variaveisMensais = calcularCustosVariaveisMensais(data.custosVariaveis);
+  const variavelUnitario = calcularCustosVariaveisPorSessao(data.custosVariaveis);
+  const variavelPercentual = calcularPercentualCustosVariaveis(data.custosVariaveis);
+  const reservasFixas = calcularTotalReservasFixas(data.reservasEstrategicas);
+  const reservasPercentuais = calcularPercentualReservasReceita(data.reservasEstrategicas);
+  return { sessoes, fixos, variaveisMensais, variavelUnitario, variavelPercentual, reservasFixas, reservasPercentuais };
+}
+
+function dividirComProtecao(base: number, percentuais: number): number {
+  const divisor = 1 - percentuais;
+  return divisor > 0.05 ? base / divisor : base * 10;
+}
 
 export function calcularCustoFixoPorSessao(data: DadosPrecificacao): number {
-  if (data.sessoesMeta === 0) return 0;
-  return calcularTotalCustosFixos(data.custosFixos) / data.sessoesMeta;
+  return data.sessoesMeta > 0 ? calcularTotalCustosFixos(data.custosFixos) / data.sessoesMeta : 0;
 }
 
-export function calcularCustoVariavelPorSessao(data: DadosPrecificacao): number {
-  if (data.sessoesMeta === 0) return 0;
-  return calcularTotalCustosVariaveis(data.custosVariaveis) / data.sessoesMeta;
+export function calcularCustoVariavelPorSessao(data: DadosPrecificacao, precoSessao = data.precoDefinido): number {
+  if (data.sessoesMeta <= 0) return calcularCustosVariaveisPorSessao(data.custosVariaveis);
+  return calcularTotalCustosVariaveis(data.custosVariaveis, data.sessoesMeta, precoSessao * data.sessoesMeta) / data.sessoesMeta;
 }
 
-export function calcularReservaPorSessao(data: DadosPrecificacao): number {
-  if (data.sessoesMeta === 0) return 0;
-  const receitaBase = _estimarReceitaParaReservas(data);
-  return calcularTotalReservas(data.reservasEstrategicas, receitaBase) / data.sessoesMeta;
+export function calcularReservaPorSessao(data: DadosPrecificacao, precoSessao = data.precoDefinido): number {
+  if (data.sessoesMeta <= 0) return 0;
+  return calcularTotalReservas(data.reservasEstrategicas, precoSessao * data.sessoesMeta) / data.sessoesMeta;
 }
 
-/** Custo total por sessão COM reservas (base para preço) */
-export function calcularCustoTotalPorSessao(data: DadosPrecificacao): number {
-  return calcularCustoFixoPorSessao(data) + calcularCustoVariavelPorSessao(data) + calcularReservaPorSessao(data);
+export function calcularCustoTotalPorSessao(data: DadosPrecificacao, precoSessao = data.precoDefinido): number {
+  return calcularCustoFixoPorSessao(data) + calcularCustoVariavelPorSessao(data, precoSessao) + calcularReservaPorSessao(data, precoSessao);
 }
 
-/** Custo operacional por sessão SEM reservas */
-export function calcularCustoOperacionalPorSessao(data: DadosPrecificacao): number {
-  return calcularCustoFixoPorSessao(data) + calcularCustoVariavelPorSessao(data);
+export function calcularCustoOperacionalPorSessao(data: DadosPrecificacao, precoSessao = data.precoDefinido): number {
+  return calcularCustoFixoPorSessao(data) + calcularCustoVariavelPorSessao(data, precoSessao);
 }
 
-// ===== PRICING (MARGEM SOBRE RECEITA) =====
+/** Cobre custos obrigatórios e tributos, sem reservas ou lucro. */
+export function calcularPrecoPisoOperacional(data: DadosPrecificacao): number {
+  const c = componentes(data);
+  if (c.sessoes <= 0) return 0;
+  const base = (c.fixos + c.variaveisMensais) / c.sessoes + c.variavelUnitario;
+  return dividirComProtecao(base, data.impostoPercentual + c.variavelPercentual);
+}
 
-/**
- * Preço mínimo por sessão usando MARGEM SOBRE RECEITA:
- *   Preço = CustoTotal / (1 - margem% - imposto%)
- *
- * Onde margem e imposto são frações da receita (ex: 0.15 = 15%).
- * Reservas já estão incluídas no CustoTotal.
- */
+/** Cobre operação e reservas planejadas, ainda sem margem de lucro. */
+export function calcularPrecoSustentavel(data: DadosPrecificacao): number {
+  const c = componentes(data);
+  if (c.sessoes <= 0) return 0;
+  const base = (c.fixos + c.variaveisMensais + c.reservasFixas) / c.sessoes + c.variavelUnitario;
+  return dividirComProtecao(base, data.impostoPercentual + c.variavelPercentual + c.reservasPercentuais);
+}
+
+/** Preço sustentável acrescido da margem desejada sobre a receita. */
+export function calcularPrecoEstrategico(data: DadosPrecificacao): number {
+  const c = componentes(data);
+  if (c.sessoes <= 0) return 0;
+  const base = (c.fixos + c.variaveisMensais + c.reservasFixas) / c.sessoes + c.variavelUnitario;
+  return dividirComProtecao(base, data.impostoPercentual + c.variavelPercentual + c.reservasPercentuais + data.margemLucro);
+}
+
+/** Mantido por compatibilidade: o antigo preço mínimo agora é o preço estratégico. */
 export function calcularPrecoMinimo(data: DadosPrecificacao): number {
-  const custoPorSessao = calcularCustoTotalPorSessao(data);
-  const divisor = 1 - data.margemLucro - data.impostoPercentual;
-  if (divisor <= 0.05) return custoPorSessao * 10; // safety cap
-  return custoPorSessao / divisor;
+  return calcularPrecoEstrategico(data);
 }
 
-/**
- * Calcula a margem sobre a RECEITA dado um preço:
- *   Margem = (Preço - CustoTotal - Impostos) / Preço
- */
 export function calcularMargemDoPreco(data: DadosPrecificacao, preco: number): number {
-  if (preco <= 0) return 0;
-  const custoPorSessao = calcularCustoTotalPorSessao(data);
-  const impostos = preco * data.impostoPercentual;
-  return (preco - custoPorSessao - impostos) / preco;
+  if (preco <= 0 || data.sessoesMeta <= 0) return 0;
+  return simularPreco(data, preco).lucroDisponivel / (preco * data.sessoesMeta);
 }
 
-// ===== PROFIT METRICS =====
-
-/**
- * Lucro Operacional = Receita - Impostos - Custos Fixos - Custos Variáveis
- * NÃO desconta reservas (coerente com DRE).
- */
 export function calcularLucroOperacional(data: DadosPrecificacao, precoSessao: number): number {
   const receita = precoSessao * data.sessoesMeta;
-  const impostos = receita * data.impostoPercentual;
-  const custoOperacional = calcularCustoOperacionalMensal(data);
-  return receita - impostos - custoOperacional;
+  return receita - receita * data.impostoPercentual - calcularCustoOperacionalMensal(data, precoSessao);
 }
 
-/**
- * Lucro Disponível = Lucro Operacional - Reservas
- * É o que realmente sobra para o profissional.
- */
 export function calcularLucroDisponivel(data: DadosPrecificacao, precoSessao: number): number {
-  const receitaEst = precoSessao * data.sessoesMeta;
-  return calcularLucroOperacional(data, precoSessao) - calcularTotalReservas(data.reservasEstrategicas, receitaEst);
+  const receita = precoSessao * data.sessoesMeta;
+  return calcularLucroOperacional(data, precoSessao) - calcularTotalReservas(data.reservasEstrategicas, receita);
 }
 
-/** % das reservas sobre o lucro operacional */
 export function calcularPercentualReservas(data: DadosPrecificacao, precoSessao: number): number {
-  const lucroOp = calcularLucroOperacional(data, precoSessao);
-  if (lucroOp <= 0) return 0;
-  const receitaEst = precoSessao * data.sessoesMeta;
-  return (calcularTotalReservas(data.reservasEstrategicas, receitaEst) / lucroOp) * 100;
+  const lucro = calcularLucroOperacional(data, precoSessao);
+  if (lucro <= 0) return 0;
+  return calcularTotalReservas(data.reservasEstrategicas, precoSessao * data.sessoesMeta) / lucro * 100;
 }
-
-// ===== SERVICES & PLANS =====
 
 export function calcularPrecoServico(data: DadosPrecificacao, servico: TipoServico): number {
-  const precoBase = calcularPrecoMinimo(data);
-  return (precoBase * servico.multiplicadorPreco) + servico.custoAdicional;
+  return calcularPrecoEstrategico(data) * servico.multiplicadorPreco + servico.custoAdicional;
 }
 
 export function calcularPrecoPlano(precoUnitario: number, plano: PlanoTratamento): number {
-  const total = precoUnitario * plano.quantidadeSessoes;
-  return total * (1 - plano.descontoPercentual / 100);
+  return precoUnitario * plano.quantidadeSessoes * (1 - plano.descontoPercentual / 100);
 }
 
-// ===== SIMULATION =====
-
-export function simularPreco(data: DadosPrecificacao, precoSessao: number): {
-  receitaMensal: number;
-  impostos: number;
-  custoOperacional: number;
-  custoTotal: number;
-  lucroOperacional: number;
-  reservas: number;
-  lucroDisponivel: number;
-  margem: number;
-  viavel: boolean;
-} {
+export function simularPreco(data: DadosPrecificacao, precoSessao: number) {
   const receitaMensal = precoSessao * data.sessoesMeta;
   const impostos = receitaMensal * data.impostoPercentual;
-  const custoOperacional = calcularCustoOperacionalMensal(data);
+  const custoOperacional = calcularCustoOperacionalMensal(data, precoSessao);
   const reservas = calcularTotalReservas(data.reservasEstrategicas, receitaMensal);
   const custoTotal = custoOperacional + reservas;
   const lucroOperacional = receitaMensal - impostos - custoOperacional;
   const lucroDisponivel = lucroOperacional - reservas;
-  const margem = receitaMensal > 0 ? (lucroDisponivel / receitaMensal) * 100 : 0;
+  const margem = receitaMensal > 0 ? lucroDisponivel / receitaMensal * 100 : 0;
   return { receitaMensal, impostos, custoOperacional, custoTotal, lucroOperacional, reservas, lucroDisponivel, margem, viavel: lucroDisponivel >= 0 };
 }
 
-// ===== BUSINESS METRICS =====
-
-/**
- * Ponto de Equilíbrio: inclui reservas no custo fixo para o cálculo.
- * PE = (Custos Fixos + Reservas) / (Preço - Impostos unitários - Custo Variável por Sessão)
- */
 export function calcularPontoEquilibrio(data: DadosPrecificacao, precoSessao: number): number {
-  const receitaEst = precoSessao * data.sessoesMeta;
-  const custoFixoTotal = calcularTotalCustosFixos(data.custosFixos) + calcularTotalReservas(data.reservasEstrategicas, receitaEst);
-  const impostoPorSessao = precoSessao * data.impostoPercentual;
-  const custoVarPorSessao = calcularCustoVariavelPorSessao(data);
-  const contribuicao = precoSessao - impostoPorSessao - custoVarPorSessao;
-  if (contribuicao <= 0) return Infinity;
-  return Math.ceil(custoFixoTotal / contribuicao);
+  const c = componentes(data);
+  const fixos = c.fixos + c.variaveisMensais + c.reservasFixas;
+  const contribuicao = precoSessao * (1 - data.impostoPercentual - c.variavelPercentual - c.reservasPercentuais) - c.variavelUnitario;
+  return contribuicao > 0 ? Math.ceil(fixos / contribuicao) : Infinity;
 }
 
-export function calcularHorasTrabalhadas(data: DadosPrecificacao): number {
-  return data.diasUteis * data.horasTrabalho;
-}
-
+export function calcularHorasTrabalhadas(data: DadosPrecificacao): number { return data.diasUteis * data.horasTrabalho; }
 export function calcularTaxaOcupacao(data: DadosPrecificacao): number {
-  const capacidadeMaxima = data.diasUteis * data.sessoesporDia;
-  if (capacidadeMaxima === 0) return 0;
-  return (data.sessoesMeta / capacidadeMaxima) * 100;
+  const capacidade = data.diasUteis * data.sessoesporDia;
+  return capacidade > 0 ? data.sessoesMeta / capacidade * 100 : 0;
 }
-
-/** Valor por hora usando duração configurável (default do data) */
 export function calcularValorHora(data: DadosPrecificacao, precoSessao: number, duracaoMinutos?: number): number {
   const duracao = duracaoMinutos ?? data.duracaoPadraoMinutos ?? 50;
-  if (duracao <= 0) return 0;
-  return (precoSessao / duracao) * 60;
+  return duracao > 0 ? precoSessao / duracao * 60 : 0;
 }
-
-export function calcularCapacidadeMaxima(data: DadosPrecificacao): number {
-  return data.diasUteis * data.sessoesporDia;
-}
-
-/** Sugere sessões por dia com base na duração + 10min transição */
+export function calcularCapacidadeMaxima(data: DadosPrecificacao): number { return data.diasUteis * data.sessoesporDia; }
 export function sugerirSessoesPorDia(horasTrabalho: number, duracaoMinutos: number): number {
-  const minutosDisponiveis = horasTrabalho * 60;
-  const minutosSlot = duracaoMinutos + 10; // 10 min transição
-  return Math.floor(minutosDisponiveis / minutosSlot);
+  return Math.floor(horasTrabalho * 60 / (duracaoMinutos + 10));
 }

@@ -74,6 +74,8 @@ export const appRouter = router({
             frequencia: z.enum(['mensal', 'anual']),
             observacao: z.string().optional().default(''),
             descricao: z.string().optional().default(''),
+            modo: z.enum(['mensal', 'por_sessao', 'percentual_receita']).optional(),
+            percentual: z.number().min(0).max(1).optional(),
           })).optional(),
           reservasEstrategicas: z.array(z.object({
             id: z.string(),
@@ -87,6 +89,11 @@ export const appRouter = router({
           sessoesMeta: z.number().min(0).optional(),
           margemLucro: z.number().min(0).max(1).optional(),
           impostoPercentual: z.number().min(0).max(1).optional(),
+          etapasConcluidas: z.object({
+            custos: z.boolean().optional(),
+            precificacao: z.boolean().optional(),
+            servicos: z.boolean().optional(),
+          }).optional(),
           precoDefinido: z.number().min(0).optional(),
           horasTrabalho: z.number().min(0).optional(),
           diasUteis: z.number().min(0).optional(),
