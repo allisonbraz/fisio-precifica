@@ -13,6 +13,8 @@ import {
   calcularReservaPorSessao,
   calcularCustoTotalPorSessao,
   calcularPrecoMinimo,
+  calcularPrecoPisoOperacional,
+  calcularPrecoSustentavel,
   calcularMargemDoPreco,
   calcularLucroOperacional,
   calcularLucroDisponivel,
@@ -132,6 +134,16 @@ describe('calcularTotalCustosVariaveis', () => {
     // Material 300 + Energia 1200/12=100 = 400
     expect(total).toBe(400);
   });
+
+  it('acompanha sessões e faturamento conforme a base escolhida', () => {
+    const custos: CustoVariavel[] = [
+      { id: 'm', nome: 'Mensal', valor: 100, frequencia: 'mensal', modo: 'mensal', observacao: '', descricao: '' },
+      { id: 's', nome: 'Por sessão', valor: 5, frequencia: 'mensal', modo: 'por_sessao', observacao: '', descricao: '' },
+      { id: 'p', nome: 'Cartão', valor: 0, frequencia: 'mensal', modo: 'percentual_receita', percentual: 0.03, observacao: '', descricao: '' },
+    ];
+    expect(calcularTotalCustosVariaveis(custos, 20, 4000)).toBe(320);
+    expect(calcularTotalCustosVariaveis(custos, 40, 8000)).toBe(540);
+  });
 });
 
 describe('calcularPrecoMinimo', () => {
@@ -151,6 +163,24 @@ describe('calcularPrecoMinimo', () => {
     const preco = calcularPrecoMinimo(data);
     const custoPorSessao = calcularCustoTotalPorSessao(data);
     expect(preco).toBe(custoPorSessao * 10);
+  });
+
+  it('resolve reserva percentual no denominador sem circularidade', () => {
+    const data: DadosPrecificacao = {
+      ...mockData,
+      custosFixos: [{ id: 'f', nome: 'Fixo', valor: 1000, frequencia: 'mensal', observacao: '', descricao: '' }],
+      custosVariaveis: [],
+      reservasEstrategicas: [{ id: 'r', nome: 'Reserva', valor: 0, frequencia: 'mensal', modo: 'percentual', percentual: 0.10, descricao: '' }],
+      sessoesMeta: 10,
+      impostoPercentual: 0.10,
+      margemLucro: 0.20,
+    };
+    expect(calcularPrecoMinimo(data)).toBeCloseTo(100 / 0.60, 6);
+  });
+
+  it('ordena piso, sustentável e estratégico', () => {
+    expect(calcularPrecoPisoOperacional(mockData)).toBeLessThan(calcularPrecoSustentavel(mockData));
+    expect(calcularPrecoSustentavel(mockData)).toBeLessThan(calcularPrecoMinimo(mockData));
   });
 });
 

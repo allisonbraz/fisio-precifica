@@ -40,6 +40,8 @@ export interface CustoVariavel {
   frequencia: FrequenciaCusto;
   observacao: string;
   descricao: string;
+  modo?: 'mensal' | 'por_sessao' | 'percentual_receita';
+  percentual?: number;
 }
 
 export type ReservaModo = 'fixo' | 'percentual';
@@ -100,4 +102,9 @@ export interface DadosPrecificacao {
   duracaoPadraoMinutos: number;
   regimeTributario: RegimeTributario;
   impostoPercentual: number;
+  etapasConcluidas?: {
+    custos?: boolean;
+    precificacao?: boolean;
+    servicos?: boolean;
+  };
 }

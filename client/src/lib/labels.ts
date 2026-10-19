@@ -22,10 +22,9 @@ export const LABELS = {
 } as const;
 
 export const REGIMES_TRIBUTARIOS = [
-  { value: 'mei', label: 'MEI', imposto: 0.05, desc: 'Microempreendedor Individual — DAS fixo mensal (~5%)' },
-  { value: 'simples', label: 'Simples Nacional', imposto: 0.06, desc: 'Anexo III — alíquota inicial de 6%' },
-  { value: 'presumido', label: 'Lucro Presumido', imposto: 0.1433, desc: 'ISS + PIS + COFINS + IRPJ + CSLL (~14,33%)' },
-  { value: 'autonomo', label: 'Autônomo PF', imposto: 0.15, desc: 'Carnê-leão — IRPF faixa média (~15%)' },
+  { value: 'simples', label: 'Simples Nacional', imposto: 0.06, desc: 'Confirme a alíquota efetiva com seu contador. Para fisioterapia, o Fator R pode alterar o anexo.' },
+  { value: 'presumido', label: 'Lucro Presumido', imposto: 0.1433, desc: 'Estimativa inicial; ISS e demais tributos variam. Confirme a alíquota efetiva.' },
+  { value: 'autonomo', label: 'Autônomo (pessoa física)', imposto: 0.15, desc: 'Estimativa inicial. IRPF e tributos municipais dependem da situação individual.' },
   { value: 'personalizado', label: 'Personalizado', imposto: 0, desc: 'Defina sua alíquota manualmente' },
 ] as const;
 

@@ -13,6 +13,8 @@ import {
   calcularCustoTotalPorSessao,
   calcularCustoOperacionalPorSessao,
   calcularPrecoMinimo,
+  calcularPrecoPisoOperacional,
+  calcularPrecoSustentavel,
   calcularMargemDoPreco,
   calcularLucroOperacional,
   calcularLucroDisponivel,
@@ -41,6 +43,8 @@ export interface Metrics {
 
   // Pricing
   precoPorSessao: number;
+  precoPisoOperacional: number;
+  precoSustentavel: number;
   impostoPorSessao: number;
   lucroPorSessao: number;
 
@@ -62,23 +66,25 @@ export function useMetrics(data: DadosPrecificacao): Metrics {
   return useMemo(() => {
     const custoOperacional = calcularTotalCustosOperacionais(data.custosFixos);
     const custoDepreciacao = calcularTotalDepreciacao(data.custosFixos);
-    const custoVarTotal = calcularTotalCustosVariaveis(data.custosVariaveis);
-    // Para totalReservas no hook, usamos a receita estimada baseada no preço calculado
-    // Calculamos preço primeiro, depois usamos receita para reservas percentuais
     const precoTemp = calcularPrecoMinimo(data);
     const receitaEst = precoTemp * data.sessoesMeta;
+    const custoVarTotal = calcularTotalCustosVariaveis(data.custosVariaveis, data.sessoesMeta, receitaEst);
+    // Para totalReservas no hook, usamos a receita estimada baseada no preço calculado
+    // Calculamos preço primeiro, depois usamos receita para reservas percentuais
     const totalReservas = calcularTotalReservas(data.reservasEstrategicas, receitaEst);
     const custoFixoTotal = custoOperacional + custoDepreciacao;
-    const custoOperacionalMensal = calcularCustoOperacionalMensal(data);
-    const custoTotalMensal = calcularCustoTotalMensal(data);
+    const custoOperacionalMensal = calcularCustoOperacionalMensal(data, precoTemp);
+    const custoTotalMensal = calcularCustoTotalMensal(data, precoTemp);
 
     const custoFixoSessao = calcularCustoFixoPorSessao(data);
-    const custoVarSessao = calcularCustoVariavelPorSessao(data);
-    const reservaSessao = calcularReservaPorSessao(data);
-    const custoTotalSessao = calcularCustoTotalPorSessao(data);
-    const custoOperacionalSessao = calcularCustoOperacionalPorSessao(data);
+    const custoVarSessao = calcularCustoVariavelPorSessao(data, precoTemp);
+    const reservaSessao = calcularReservaPorSessao(data, precoTemp);
+    const custoTotalSessao = calcularCustoTotalPorSessao(data, precoTemp);
+    const custoOperacionalSessao = calcularCustoOperacionalPorSessao(data, precoTemp);
 
     const precoPorSessao = calcularPrecoMinimo(data);
+    const precoPisoOperacional = calcularPrecoPisoOperacional(data);
+    const precoSustentavel = calcularPrecoSustentavel(data);
     const impostoPorSessao = precoPorSessao * data.impostoPercentual;
     const lucroPorSessao = precoPorSessao - custoTotalSessao - impostoPorSessao;
 
@@ -97,7 +103,7 @@ export function useMetrics(data: DadosPrecificacao): Metrics {
       custoOperacional, custoDepreciacao, custoVarTotal, totalReservas,
       custoFixoTotal, custoOperacionalMensal, custoTotalMensal,
       custoFixoSessao, custoVarSessao, reservaSessao, custoTotalSessao, custoOperacionalSessao,
-      precoPorSessao, impostoPorSessao, lucroPorSessao,
+      precoPorSessao, precoPisoOperacional, precoSustentavel, impostoPorSessao, lucroPorSessao,
       receitaBruta, impostosMensal, lucroOperacional, lucroDisponivel,
       taxaOcupacao, pontoEquilibrio, valorHora, capacidadeMaxima, margemPercent,
     };

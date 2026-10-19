@@ -53,16 +53,14 @@ const defaultDepreciacao: CustoFixo[] = [
 ];
 
 const defaultCustosVariaveis: CustoVariavel[] = [
-  { id: '1', nome: 'Material de Consumo (gel, eletrodos, etc.)', valor: 0, frequencia: 'mensal', observacao: '', descricao: 'Materiais usados durante as sessões. Ex: gel condutor, eletrodos, faixas elásticas. R$ 200/mês.' },
-  { id: '2', nome: 'Materiais de uso único por sessão', valor: 0, frequencia: 'mensal', observacao: '', descricao: 'Lençol descartável, luvas, papel toalha. Informe o valor TOTAL MENSAL (custo por sessão × nº de sessões). Ex: R$ 3/sessão × 80 sessões = R$ 240/mês.' },
-  { id: '3', nome: 'Taxa de cartão de crédito/débito', valor: 0, frequencia: 'mensal', observacao: '', descricao: 'Taxas cobradas pela maquininha. Ex: 2% a 5% do faturamento mensal com cartão.' },
+  { id: '1', nome: 'Material de Consumo (gel, eletrodos, etc.)', valor: 0, frequencia: 'mensal', modo: 'mensal', observacao: '', descricao: 'Materiais usados durante as sessões. Informe como total mensal ou altere a base de cálculo.' },
+  { id: '2', nome: 'Materiais de uso único por sessão', valor: 0, frequencia: 'mensal', modo: 'por_sessao', observacao: '', descricao: 'Lençol descartável, luvas e papel toalha. Informe o custo de uma sessão.' },
+  { id: '3', nome: 'Taxa de cartão de crédito/débito', valor: 0, frequencia: 'mensal', modo: 'percentual_receita', percentual: 0, observacao: '', descricao: 'Percentual médio efetivamente pago sobre o faturamento.' },
   { id: '4', nome: 'Água e esgoto', valor: 0, frequencia: 'mensal', observacao: '', descricao: 'Conta de água do consultório. Ex: R$ 80 a R$ 150/mês.' },
   { id: '5', nome: 'Energia Elétrica', valor: 0, frequencia: 'mensal', observacao: '', descricao: 'Conta de luz (ar-condicionado, equipamentos). Ex: R$ 200 a R$ 500/mês.' },
   { id: '6', nome: 'Material de Limpeza', valor: 0, frequencia: 'mensal', observacao: '', descricao: 'Produtos de limpeza e higienização. Ex: R$ 100 a R$ 200/mês.' },
   { id: '7', nome: 'Marketing variável', valor: 0, frequencia: 'mensal', observacao: '', descricao: 'Ações pontuais de marketing: impulsionamento, panfletos, eventos. Ex: R$ 300/mês.' },
-  { id: '8', nome: 'Impostos da prefeitura (ISS, ECAD)', valor: 0, frequencia: 'mensal', observacao: '', descricao: 'ISS (2% a 5% do faturamento) e outras taxas municipais. Ex: R$ 200/mês.' },
-  { id: '9', nome: 'Impostos sobre faturamento/receita', valor: 0, frequencia: 'mensal', observacao: '', descricao: 'DAS (Simples Nacional), IRPJ, etc. Conforme seu regime tributário. Ex: 6% a 15% do faturamento.' },
-  { id: '10', nome: 'Comissão (se houver)', valor: 0, frequencia: 'mensal', observacao: '', descricao: 'Comissão paga a indicadores ou parceiros. Ex: 10% sobre sessões indicadas.' },
+  { id: '10', nome: 'Comissão (se houver)', valor: 0, frequencia: 'mensal', modo: 'percentual_receita', percentual: 0, observacao: '', descricao: 'Percentual do faturamento pago a parceiros ou profissionais.' },
   { id: '11', nome: 'Outros custos variáveis', valor: 0, frequencia: 'mensal', observacao: '', descricao: 'Qualquer outro custo que varia conforme o volume de atendimentos.' },
 ];
 
@@ -101,6 +99,7 @@ const defaultData: DadosPrecificacao = {
   duracaoPadraoMinutos: 50,
   regimeTributario: 'simples',
   impostoPercentual: 0.06,
+  etapasConcluidas: {},
 };
 
 const defaultPerfil: PerfilProfissional = {
@@ -209,14 +208,27 @@ export function loadData(): DadosPrecificacao {
       }
 
       if (parsed.custosVariaveis) {
-        parsed.custosVariaveis = parsed.custosVariaveis.map((c: any) => {
+        parsed.custosVariaveis = parsed.custosVariaveis.filter((c: any) => {
+          const impostoLegado = c.id === '8' || c.id === '9' || /imposto|\bdas\b|irpj/i.test(c.nome);
+          return !impostoLegado || c.valor > 0;
+        }).map((c: any) => {
           if (c.id === '2' && c.nome === 'Material descartável por sessão') {
             c.nome = 'Materiais de uso único por sessão';
           }
           const defaultById = defaultCustosVariaveis.find(d => d.id === c.id);
           const defaultByName = findDefaultByName(c.nome, defaultCustosVariaveis);
           const matched = defaultById || defaultByName;
-          return { ...c, frequencia: c.frequencia || 'mensal', descricao: matched?.descricao || c.descricao || '' };
+          const impostoLegado = c.id === '8' || c.id === '9' || /imposto|\bdas\b|irpj/i.test(c.nome);
+          return {
+            ...c,
+            nome: impostoLegado ? `${c.nome} — revisar possível duplicidade` : c.nome,
+            frequencia: c.frequencia || 'mensal',
+            modo: c.modo || (matched as CustoVariavel | undefined)?.modo || 'mensal',
+            percentual: c.percentual || 0,
+            descricao: impostoLegado
+              ? 'Valor legado preservado. Se este tributo já estiver na alíquota da Precificação, zere este item para não contar duas vezes.'
+              : matched?.descricao || c.descricao || '',
+          };
         });
         const existingNames = new Set(parsed.custosVariaveis.map((c: any) => c.nome.toLowerCase()));
         for (const def of defaultCustosVariaveis) {
@@ -248,9 +260,13 @@ export function loadData(): DadosPrecificacao {
       if (parsed.regimeTributario === undefined) {
         parsed.regimeTributario = 'simples';
       }
+      if (parsed.regimeTributario === 'mei') {
+        parsed.regimeTributario = 'personalizado';
+      }
       if (parsed.impostoPercentual === undefined) {
         parsed.impostoPercentual = 0.06;
       }
+      if (!parsed.etapasConcluidas) parsed.etapasConcluidas = {};
 
       // Migration: margemLucro was previously markup (could be > 1.0 for >100%).
       // Now it's margin on revenue (0.0 to ~0.50 max realistic).

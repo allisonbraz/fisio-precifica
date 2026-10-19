@@ -1,5 +1,6 @@
 // server/vercel-entry.ts
 import "dotenv/config";
+import * as Sentry from "@sentry/node";
 import express from "express";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 
@@ -30,6 +31,13 @@ var ENV = {
   forgeApiUrl: process.env.BUILT_IN_FORGE_API_URL ?? "",
   forgeApiKey: process.env.BUILT_IN_FORGE_API_KEY ?? ""
 };
+if (!ENV.databaseUrl) {
+  console.error("\n\u26A0\uFE0F  DATABASE_URL not set \u2014 database features will be unavailable.");
+  console.error("   Copy .env.example to .env and fill in your PostgreSQL connection string.\n");
+}
+if (!ENV.supabaseUrl || !ENV.supabaseAnonKey) {
+  console.warn("[ENV] Supabase not configured \u2014 authentication will not work.");
+}
 
 // server/_core/notification.ts
 var TITLE_MAX_LENGTH = 1200;
@@ -125,6 +133,33 @@ var t = initTRPC.context().create({
 });
 var router = t.router;
 var publicProcedure = t.procedure;
+var rateLimitStore = /* @__PURE__ */ new Map();
+var RATE_LIMIT_WINDOW_MS = 6e4;
+var RATE_LIMIT_MAX = 5;
+setInterval(() => {
+  const now = Date.now();
+  rateLimitStore.forEach((entry, key) => {
+    if (now > entry.resetAt) rateLimitStore.delete(key);
+  });
+}, 6e4);
+var rateLimit = t.middleware(async ({ ctx, next }) => {
+  const ip = ctx.req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || ctx.req.ip || "unknown";
+  const now = Date.now();
+  const entry = rateLimitStore.get(ip);
+  if (entry && now < entry.resetAt) {
+    if (entry.count >= RATE_LIMIT_MAX) {
+      throw new TRPCError2({
+        code: "TOO_MANY_REQUESTS",
+        message: "Muitas requisi\xE7\xF5es. Tente novamente em 1 minuto."
+      });
+    }
+    entry.count++;
+  } else {
+    rateLimitStore.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
+  }
+  return next();
+});
+var rateLimitedProcedure = t.procedure.use(rateLimit);
 var requireUser = t.middleware(async (opts) => {
   const { ctx, next } = opts;
   if (!ctx.user) {
@@ -196,7 +231,9 @@ var users = pgTable("users", {
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().notNull(),
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull()
-});
+}, (table) => [
+  index("idx_users_email").on(table.email)
+]);
 var leads = pgTable("leads", {
   id: serial("id").primaryKey(),
   nome: varchar("nome", { length: 255 }).notNull(),
@@ -221,17 +258,22 @@ var pricingData = pgTable("pricing_data", {
 
 // server/db.ts
 var _db = null;
+var _lastAttempt = 0;
+var DB_RETRY_INTERVAL_MS = 5e3;
 async function getDb() {
-  if (!_db && process.env.DATABASE_URL) {
-    try {
-      const client = postgres(process.env.DATABASE_URL);
-      _db = drizzle(client);
-    } catch (error) {
-      console.warn("[Database] Failed to connect:", error);
-      _db = null;
-    }
+  if (_db) return _db;
+  if (!process.env.DATABASE_URL) return null;
+  const now = Date.now();
+  if (now - _lastAttempt < DB_RETRY_INTERVAL_MS) return null;
+  _lastAttempt = now;
+  try {
+    const client = postgres(process.env.DATABASE_URL);
+    _db = drizzle(client);
+    return _db;
+  } catch (error) {
+    console.warn("[Database] Connection failed, will retry in 5s:", error);
+    return null;
   }
-  return _db;
 }
 async function upsertUser(user) {
   if (!user.supabaseId) {
@@ -332,58 +374,105 @@ async function getLeadsForExport() {
   if (!db) return [];
   return db.select().from(leads).orderBy(desc(leads.createdAt));
 }
-var UNIFIED_CONTACTS_MAX = 5e3;
 async function getUnifiedContacts(limit = 100, offset = 0) {
   const db = await getDb();
   if (!db) return { items: [], total: 0 };
-  const [allLeads, allUsers] = await Promise.all([
-    db.select().from(leads).orderBy(desc(leads.createdAt)).limit(UNIFIED_CONTACTS_MAX),
-    db.select().from(users).orderBy(desc(users.createdAt)).limit(UNIFIED_CONTACTS_MAX)
-  ]);
-  const userByEmail = /* @__PURE__ */ new Map();
-  for (const user of allUsers) {
-    if (user.email) {
-      userByEmail.set(user.email.toLowerCase().trim(), user);
+  const countResult = await db.execute(sql`
+    SELECT COUNT(*) as total FROM (
+      SELECT LOWER(TRIM(email)) as key FROM leads
+      UNION
+      SELECT LOWER(TRIM(email)) as key FROM users WHERE email IS NOT NULL
+    ) unified
+  `);
+  const total = Number(countResult[0]?.total ?? 0);
+  const rows = await db.execute(sql`
+    WITH lead_contacts AS (
+      SELECT DISTINCT ON (LOWER(TRIM(l.email)))
+        'lead-' || l.id::text as id,
+        l.nome,
+        l.email,
+        COALESCE(l.whatsapp, u.whatsapp, '') as whatsapp,
+        COALESCE(l.source, 'banner') as source,
+        l."createdAt",
+        u."lastSignedIn",
+        CASE WHEN u.id IS NOT NULL THEN true ELSE false END as "hasOAuth",
+        CASE WHEN u.id IS NOT NULL
+          THEN COALESCE(l.source, 'banner') || ' + login'
+          ELSE COALESCE(l.source, 'banner')
+        END as computed_source
+      FROM leads l
+      LEFT JOIN users u ON LOWER(TRIM(u.email)) = LOWER(TRIM(l.email))
+      ORDER BY LOWER(TRIM(l.email)), l."createdAt" DESC
+    ),
+    user_only_contacts AS (
+      SELECT
+        'user-' || u.id::text as id,
+        COALESCE(u.name, '') as nome,
+        u.email,
+        COALESCE(u.whatsapp, '') as whatsapp,
+        COALESCE(u.source, 'supabase') as source,
+        u."createdAt",
+        u."lastSignedIn",
+        true as "hasOAuth",
+        COALESCE(u.source, 'supabase') as computed_source
+      FROM users u
+      WHERE u.email IS NOT NULL
+        AND NOT EXISTS (
+          SELECT 1 FROM leads l
+          WHERE LOWER(TRIM(l.email)) = LOWER(TRIM(u.email))
+        )
+    ),
+    all_contacts AS (
+      SELECT * FROM lead_contacts
+      UNION ALL
+      SELECT * FROM user_only_contacts
+    )
+    SELECT * FROM all_contacts
+    ORDER BY "createdAt" DESC
+    LIMIT ${limit} OFFSET ${offset}
+  `);
+  const emails = rows.map((r) => r.email?.toLowerCase().trim()).filter(Boolean);
+  let perfilByEmail = /* @__PURE__ */ new Map();
+  if (emails.length > 0) {
+    const pricingRows = await db.select({ ownerEmail: pricingData.ownerEmail, data: pricingData.data }).from(pricingData).where(sql`LOWER(TRIM("ownerEmail")) = ANY(ARRAY[${sql.join(emails.map((e) => sql`${e}`), sql`,`)}])`);
+    for (const pd of pricingRows) {
+      const perfil = pd.data?._perfil;
+      if (perfil) {
+        perfilByEmail.set(pd.ownerEmail.toLowerCase().trim(), perfil);
+      }
     }
   }
-  const contactMap = /* @__PURE__ */ new Map();
-  for (const lead of allLeads) {
-    const key = lead.email.toLowerCase().trim();
-    if (contactMap.has(key)) continue;
-    const matchedUser = userByEmail.get(key);
-    contactMap.set(key, {
-      id: `lead-${lead.id}`,
-      nome: lead.nome || matchedUser?.name || "",
-      email: lead.email,
-      whatsapp: lead.whatsapp || matchedUser?.whatsapp || "",
-      source: matchedUser ? `${lead.source || "banner"} + login` : lead.source || "banner",
-      hasOAuth: !!matchedUser,
-      createdAt: lead.createdAt,
-      lastSignedIn: matchedUser?.lastSignedIn ?? null
-    });
-    if (matchedUser) userByEmail.delete(key);
-  }
-  for (const [key, user] of Array.from(userByEmail.entries())) {
-    if (contactMap.has(key)) continue;
-    contactMap.set(key, {
-      id: `user-${user.id}`,
-      nome: user.name || "",
-      email: user.email,
-      whatsapp: user.whatsapp || "",
-      source: user.source || "supabase",
-      hasOAuth: true,
-      createdAt: user.createdAt,
-      lastSignedIn: user.lastSignedIn
-    });
-  }
-  const all = Array.from(contactMap.values()).sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-  const total = all.length;
-  const items = all.slice(offset, offset + limit);
+  const items = rows.map((row) => {
+    const email = row.email || "";
+    const perfil = perfilByEmail.get(email.toLowerCase().trim());
+    return {
+      id: row.id,
+      nome: row.nome || "",
+      email,
+      whatsapp: row.whatsapp || perfil?.whatsapp || "",
+      instagram: perfil?.instagram || "",
+      especialidades: perfil?.especialidades || "",
+      source: row.computed_source || row.source || "",
+      hasOAuth: row.hasOAuth,
+      createdAt: new Date(row.createdAt),
+      lastSignedIn: row.lastSignedIn ? new Date(row.lastSignedIn) : null
+    };
+  });
   return { items, total };
 }
 async function getUnifiedContactsForExport() {
-  const result = await getUnifiedContacts(UNIFIED_CONTACTS_MAX, 0);
-  return result.items;
+  const db = await getDb();
+  if (!db) return [];
+  const allItems = [];
+  let offset = 0;
+  const chunkSize = 500;
+  while (true) {
+    const { items } = await getUnifiedContacts(chunkSize, offset);
+    allItems.push(...items);
+    if (items.length < chunkSize) break;
+    offset += chunkSize;
+  }
+  return allItems;
 }
 async function savePricingData(ownerEmail, data) {
   const db = await getDb();
@@ -416,8 +505,35 @@ async function loadPricingData(ownerEmail) {
     return null;
   }
 }
+async function getUserByEmail(email) {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db.select().from(users).where(eq(users.email, email)).limit(1);
+  return result.length > 0 ? result[0] : null;
+}
+async function updateUserEmail(oldEmail, newEmail) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(users).set({ email: newEmail, updatedAt: /* @__PURE__ */ new Date() }).where(eq(users.email, oldEmail));
+  await db.update(pricingData).set({ ownerEmail: newEmail, updatedAt: /* @__PURE__ */ new Date() }).where(eq(pricingData.ownerEmail, oldEmail));
+  const leadExists = await db.select({ id: leads.id }).from(leads).where(eq(leads.email, oldEmail)).limit(1);
+  if (leadExists.length > 0) {
+    await db.update(leads).set({ email: newEmail }).where(eq(leads.email, oldEmail));
+  }
+}
+
+// server/_core/supabase.ts
+import { createClient } from "@supabase/supabase-js";
+var supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "";
+var supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || "";
+var supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+var supabase = createClient(supabaseUrl, supabaseAnonKey);
+var supabaseAdmin = supabaseServiceRoleKey ? createClient(supabaseUrl, supabaseServiceRoleKey, {
+  auth: { autoRefreshToken: false, persistSession: false }
+}) : null;
 
 // server/routers.ts
+import { TRPCError as TRPCError3 } from "@trpc/server";
 import { z as z2 } from "zod";
 var appRouter = router({
   system: systemRouter,
@@ -425,7 +541,7 @@ var appRouter = router({
     me: publicProcedure.query((opts) => opts.ctx.user)
   }),
   leads: router({
-    register: publicProcedure.input(z2.object({
+    register: rateLimitedProcedure.input(z2.object({
       nome: z2.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
       email: z2.string().email("E-mail inv\xE1lido"),
       whatsapp: z2.string().min(8, "WhatsApp deve ter pelo menos 8 d\xEDgitos")
@@ -460,17 +576,97 @@ var appRouter = router({
     })
   }),
   pricing: router({
-    save: publicProcedure.input(z2.object({
-      email: z2.string().email(),
-      data: z2.record(z2.string(), z2.unknown())
-    })).mutation(async ({ input }) => {
-      const saved = await savePricingData(input.email, input.data);
+    save: protectedProcedure.input(z2.object({
+      data: z2.object({
+        custosFixos: z2.array(z2.object({
+          id: z2.string(),
+          nome: z2.string(),
+          valor: z2.number().min(0),
+          frequencia: z2.enum(["mensal", "anual"]),
+          observacao: z2.string().optional().default(""),
+          descricao: z2.string().optional().default(""),
+          temParcelaAtiva: z2.boolean().optional(),
+          isDepreciacao: z2.boolean().optional()
+        })).optional(),
+        custosVariaveis: z2.array(z2.object({
+          id: z2.string(),
+          nome: z2.string(),
+          valor: z2.number().min(0),
+          frequencia: z2.enum(["mensal", "anual"]),
+          observacao: z2.string().optional().default(""),
+          descricao: z2.string().optional().default(""),
+          modo: z2.enum(["mensal", "por_sessao", "percentual_receita"]).optional(),
+          percentual: z2.number().min(0).max(1).optional()
+        })).optional(),
+        reservasEstrategicas: z2.array(z2.object({
+          id: z2.string(),
+          nome: z2.string(),
+          valor: z2.number().min(0),
+          frequencia: z2.enum(["mensal", "anual"]),
+          descricao: z2.string().optional().default(""),
+          modo: z2.enum(["fixo", "percentual"]).optional(),
+          percentual: z2.number().min(0).max(1).optional()
+        })).optional(),
+        sessoesMeta: z2.number().min(0).optional(),
+        margemLucro: z2.number().min(0).max(1).optional(),
+        impostoPercentual: z2.number().min(0).max(1).optional(),
+        etapasConcluidas: z2.object({
+          custos: z2.boolean().optional(),
+          precificacao: z2.boolean().optional(),
+          servicos: z2.boolean().optional()
+        }).optional(),
+        precoDefinido: z2.number().min(0).optional(),
+        horasTrabalho: z2.number().min(0).optional(),
+        diasUteis: z2.number().min(0).optional(),
+        sessoesporDia: z2.number().min(0).optional(),
+        duracaoPadraoMinutos: z2.number().min(0).optional(),
+        regimeTributario: z2.enum(["mei", "simples", "presumido", "autonomo", "personalizado"]).optional(),
+        tiposServico: z2.array(z2.object({
+          id: z2.string(),
+          nome: z2.string(),
+          duracaoMinutos: z2.number().min(0),
+          custoAdicional: z2.number().min(0),
+          multiplicadorPreco: z2.number().min(0),
+          descricao: z2.string().optional().default("")
+        })).optional(),
+        planosTratamento: z2.array(z2.object({
+          id: z2.string(),
+          nome: z2.string(),
+          tipoServicoId: z2.string(),
+          quantidadeSessoes: z2.number().min(1),
+          descontoPercentual: z2.number().min(0).max(100),
+          validade: z2.number().min(1)
+        })).optional(),
+        registrosMensais: z2.array(z2.object({
+          id: z2.string(),
+          mes: z2.string(),
+          sessoesRealizadas: z2.number().min(0),
+          receitaTotal: z2.number().min(0),
+          custoFixoTotal: z2.number().min(0),
+          custoVariavelTotal: z2.number().min(0),
+          observacoes: z2.string().optional().default("")
+        })).optional(),
+        _perfil: z2.object({
+          nome: z2.string(),
+          cidade: z2.string(),
+          endereco: z2.string(),
+          crefito: z2.string(),
+          especialidades: z2.string(),
+          logoUrl: z2.string(),
+          whatsapp: z2.string(),
+          instagram: z2.string(),
+          cpfCnpj: z2.string(),
+          nomeEmpresa: z2.string(),
+          site: z2.string(),
+          outraRedeSocial: z2.string()
+        }).partial().optional()
+      }).passthrough()
+    })).mutation(async ({ input, ctx }) => {
+      const saved = await savePricingData(ctx.user.email, input.data);
       return { success: saved };
     }),
-    load: publicProcedure.input(z2.object({
-      email: z2.string().email()
-    })).query(async ({ input }) => {
-      const data = await loadPricingData(input.email);
+    load: protectedProcedure.query(async ({ ctx }) => {
+      const data = await loadPricingData(ctx.user.email);
       return { data };
     })
   }),
@@ -486,15 +682,34 @@ var appRouter = router({
     exportAll: adminProcedure.query(async () => {
       const items = await getUnifiedContactsForExport();
       return { items };
+    }),
+    changeEmail: adminProcedure.input(z2.object({
+      currentEmail: z2.string().email(),
+      newEmail: z2.string().email()
+    })).mutation(async ({ input }) => {
+      if (!supabaseAdmin) {
+        throw new TRPCError3({ code: "INTERNAL_SERVER_ERROR", message: "SUPABASE_SERVICE_ROLE_KEY n\xE3o configurada. Adicione a vari\xE1vel de ambiente." });
+      }
+      const userRecord = await getUserByEmail(input.currentEmail);
+      if (!userRecord) {
+        throw new TRPCError3({ code: "NOT_FOUND", message: "Usu\xE1rio n\xE3o encontrado com esse e-mail." });
+      }
+      const existingUser = await getUserByEmail(input.newEmail);
+      if (existingUser) {
+        throw new TRPCError3({ code: "CONFLICT", message: "J\xE1 existe um usu\xE1rio com esse novo e-mail." });
+      }
+      const { error } = await supabaseAdmin.auth.admin.updateUserById(
+        userRecord.supabaseId,
+        { email: input.newEmail, email_confirm: true }
+      );
+      if (error) {
+        throw new TRPCError3({ code: "INTERNAL_SERVER_ERROR", message: `Erro Supabase: ${error.message}` });
+      }
+      await updateUserEmail(input.currentEmail, input.newEmail);
+      return { success: true };
     })
   })
 });
-
-// server/_core/supabase.ts
-import { createClient } from "@supabase/supabase-js";
-var supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "";
-var supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || "";
-var supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // server/_core/context.ts
 async function createContext(opts) {
@@ -529,6 +744,13 @@ async function createContext(opts) {
 }
 
 // server/vercel-entry.ts
+if (process.env.SENTRY_DSN) {
+  Sentry.init({
+    dsn: process.env.SENTRY_DSN,
+    environment: process.env.NODE_ENV || "production",
+    tracesSampleRate: 0.2
+  });
+}
 var app = express();
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
@@ -536,7 +758,14 @@ app.use(
   "/api/trpc",
   createExpressMiddleware({
     router: appRouter,
-    createContext
+    createContext,
+    onError: ({ path, error }) => {
+      console.error(`[tRPC Error] ${path ?? "unknown"}:`, error.message);
+      if (error.code === "INTERNAL_SERVER_ERROR") {
+        console.error("[tRPC Error] Stack:", error.stack);
+        Sentry.captureException(error, { extra: { path } });
+      }
+    }
   })
 );
 var vercel_entry_default = app;

@@ -1,5 +1,5 @@
 import type { DadosPrecificacao } from './types';
-import { calcularCustoTotalPorSessao, calcularLucroOperacional, calcularTotalReservas } from './calculations';
+import { calcularCustoTotalPorSessao, calcularLucroOperacional, calcularMargemDoPreco, calcularTotalReservas } from './calculations';
 import { formatarMoeda } from './formatters';
 
 export interface AlertaFinanceiro {
@@ -21,7 +21,7 @@ export function gerarAlertas(data: DadosPrecificacao, precoSessao: number): Aler
   }
 
   const lucroOp = calcularLucroOperacional(data, precoSessao);
-  const totalReservas = calcularTotalReservas(data.reservasEstrategicas);
+  const totalReservas = calcularTotalReservas(data.reservasEstrategicas, precoSessao * data.sessoesMeta);
   if (lucroOp > 0 && totalReservas === 0) {
     alertas.push({
       tipo: 'warning',
@@ -40,7 +40,7 @@ export function gerarAlertas(data: DadosPrecificacao, precoSessao: number): Aler
 
   const custoSessao = calcularCustoTotalPorSessao(data);
   if (custoSessao > 0 && precoSessao > 0) {
-    const margem = ((precoSessao - custoSessao) / custoSessao) * 100;
+    const margem = calcularMargemDoPreco(data, precoSessao) * 100;
     if (margem < 15) {
       alertas.push({
         tipo: 'danger',
