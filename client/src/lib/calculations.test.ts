@@ -26,6 +26,7 @@ import {
   calcularTaxaOcupacao,
   calcularValorHora,
   calcularCapacidadeMaxima,
+  metaDeSessoesEhViavel,
   sugerirSessoesPorDia,
 } from './calculations';
 import type { DadosPrecificacao, CustoFixo, CustoVariavel, ReservaEstrategica, TipoServico, PlanoTratamento } from './types';
@@ -296,7 +297,38 @@ describe('métricas de trabalho', () => {
     expect(calcularValorHora(mockData, 100, 0)).toBe(0);
   });
 
+  it('considera a meta viável somente até a capacidade mensal da agenda', () => {
+    const data = { ...mockData, diasUteis: 20, sessoesporDia: 4, sessoesMeta: 80 };
+    expect(calcularCapacidadeMaxima(data)).toBe(80);
+    expect(metaDeSessoesEhViavel(data)).toBe(true);
+    expect(calcularTaxaOcupacao(data)).toBe(100);
+    expect(metaDeSessoesEhViavel({ ...data, sessoesMeta: 81 })).toBe(false);
+  });
+
+  it('não calcula preços quando a meta excede a capacidade mensal', () => {
+    const data = { ...mockData, diasUteis: 10, sessoesporDia: 5, sessoesMeta: 51 };
+    expect(calcularPrecoPisoOperacional(data)).toBe(0);
+    expect(calcularPrecoSustentavel(data)).toBe(0);
+    expect(calcularPrecoMinimo(data)).toBe(0);
+  });
+
+  it('mantém o preço por sessão ao alterar somente a capacidade, com a mesma meta válida', () => {
+    const precoComCapacidadeMenor = calcularPrecoMinimo({ ...mockData, diasUteis: 20, sessoesporDia: 5 });
+    const precoComCapacidadeMaior = calcularPrecoMinimo({ ...mockData, diasUteis: 25, sessoesporDia: 8 });
+    expect(precoComCapacidadeMaior).toBe(precoComCapacidadeMenor);
+  });
+
   it('sugerirSessoesPorDia calcula slots disponíveis', () => {
     expect(sugerirSessoesPorDia(8, 50)).toBe(8);
+  });
+
+  it('aplica a transição de 10 minutos apenas entre sessões', () => {
+    // 7 sessões de 60 min ocupam 7×60 + 6×10 = 480 min.
+    expect(sugerirSessoesPorDia(8, 60)).toBe(7);
+  });
+
+  it('sugerirSessoesPorDia retorna 0 sem horas ou duração', () => {
+    expect(sugerirSessoesPorDia(0, 50)).toBe(0);
+    expect(sugerirSessoesPorDia(8, 0)).toBe(0);
   });
 });

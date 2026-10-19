@@ -524,9 +524,14 @@ async function updateUserEmail(oldEmail, newEmail) {
 
 // server/_core/supabase.ts
 import { createClient } from "@supabase/supabase-js";
-var supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "";
-var supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || "";
+var configuredSupabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "";
+var configuredSupabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || "";
 var supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+var supabaseUrl = configuredSupabaseUrl || "http://127.0.0.1:54321";
+var supabaseAnonKey = configuredSupabaseAnonKey || "local-anon-key";
+if (!configuredSupabaseUrl || !configuredSupabaseAnonKey) {
+  console.warn("[Supabase] Sem credenciais configuradas; a autentica\xE7\xE3o fica desligada.");
+}
 var supabase = createClient(supabaseUrl, supabaseAnonKey);
 var supabaseAdmin = supabaseServiceRoleKey ? createClient(supabaseUrl, supabaseServiceRoleKey, {
   auth: { autoRefreshToken: false, persistSession: false }
@@ -544,7 +549,10 @@ var appRouter = router({
     register: rateLimitedProcedure.input(z2.object({
       nome: z2.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
       email: z2.string().email("E-mail inv\xE1lido"),
-      whatsapp: z2.string().min(8, "WhatsApp deve ter pelo menos 8 d\xEDgitos")
+      whatsapp: z2.string().min(8, "WhatsApp deve ter pelo menos 8 d\xEDgitos"),
+      marketingConsent: z2.literal(true, {
+        error: "O consentimento para contato de marketing \xE9 obrigat\xF3rio"
+      })
     })).mutation(async ({ input, ctx }) => {
       const ip = ctx.req.headers["x-forwarded-for"] || ctx.req.ip || "";
       const userAgent = ctx.req.headers["user-agent"] || "";
@@ -644,7 +652,18 @@ var appRouter = router({
           receitaTotal: z2.number().min(0),
           custoFixoTotal: z2.number().min(0),
           custoVariavelTotal: z2.number().min(0),
-          observacoes: z2.string().optional().default("")
+          observacoes: z2.string().optional().default(""),
+          tipo: z2.enum(["simples", "completo"]).optional(),
+          servicosVendidos: z2.array(z2.object({
+            tipoServicoId: z2.string(),
+            quantidade: z2.number().min(0),
+            receitaGerada: z2.number().min(0)
+          })).optional(),
+          planosVendidos: z2.array(z2.object({
+            planoTratamentoId: z2.string(),
+            quantidade: z2.number().min(0),
+            receitaGerada: z2.number().min(0)
+          })).optional()
         })).optional(),
         _perfil: z2.object({
           nome: z2.string(),

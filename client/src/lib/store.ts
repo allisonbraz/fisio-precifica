@@ -9,6 +9,7 @@ export * from './calculations';
 export * from './alerts';
 export * from './formatters';
 
+import { markLocalDataCleared, setPendingLocalSync } from './sync';
 import type {
   CustoFixo,
   CustoVariavel,
@@ -343,4 +344,6 @@ export function clearAllLocalData(): void {
   localStorage.removeItem(LEAD_KEY);
   localStorage.removeItem(PERFIL_KEY);
   localStorage.removeItem(LEADS_LIST_KEY);
+  setPendingLocalSync(false);
+  markLocalDataCleared();
 }

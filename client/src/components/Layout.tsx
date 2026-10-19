@@ -24,6 +24,7 @@ import {
   LogOut,
 } from 'lucide-react';
 import { useAuth } from '@/_core/hooks/useAuth';
+import { useData } from '@/contexts/DataContext';
 import { Button } from '@/components/ui/button';
 
 
@@ -53,7 +54,15 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { user, logout } = useAuth();
+  const { syncNow, syncStatus } = useData();
   const isAdmin = user?.role === 'admin';
+
+  const handleLogout = async () => {
+    const synced = syncStatus === 'synced' || await syncNow();
+    if (!synced && !window.confirm('Seus dados ainda não foram sincronizados. Eles continuarão salvos neste navegador e tentaremos enviá-los quando você entrar novamente. Deseja sair mesmo assim?')) return;
+    await logout({ preserveLocalData: !synced });
+    setSidebarOpen(false);
+  };
 
   return (
     <div className="min-h-screen flex bg-background">
@@ -239,7 +248,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 variant="ghost"
                 size="sm"
                 className="w-full rounded-xl text-xs gap-1.5 text-muted-foreground hover:text-foreground"
-                onClick={() => { logout(); setSidebarOpen(false); }}
+                onClick={() => { void handleLogout(); }}
               >
                 <LogOut className="w-3.5 h-3.5" />
                 Sair
@@ -284,7 +293,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={logout}
+                onClick={() => { void handleLogout(); }}
                 className="rounded-xl"
                 aria-label="Sair"
               >
@@ -314,7 +323,13 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         <footer className="border-t border-border/50 px-4 sm:px-6 lg:px-8 py-4 mt-8">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-muted-foreground/60">
             <p>Feito por <span className="font-medium text-muted-foreground/80">Allison Braz</span> — <span className="font-medium text-primary/70">FisioMind</span></p>
-            <p>FisioPrecifica © {new Date().getFullYear()}</p>
+            <p>
+              <Link href="/privacidade" className="hover:underline">Privacidade</Link>
+              {' · '}
+              <Link href="/termos" className="hover:underline">Termos</Link>
+              {' · '}
+              FisioPrecifica © {new Date().getFullYear()}
+            </p>
           </div>
         </footer>
       </main>

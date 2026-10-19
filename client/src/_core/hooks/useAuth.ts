@@ -20,9 +20,9 @@ export function useAuth(options?: UseAuthOptions) {
     refetchOnWindowFocus: false,
   });
 
-  const logout = useCallback(async () => {
+  const logout = useCallback(async ({ preserveLocalData = false }: { preserveLocalData?: boolean } = {}) => {
     await supabase.auth.signOut();
-    clearAllLocalData();
+    if (!preserveLocalData) clearAllLocalData();
     utils.auth.me.setData(undefined, null);
     await utils.auth.me.invalidate();
     setLocation("/login");

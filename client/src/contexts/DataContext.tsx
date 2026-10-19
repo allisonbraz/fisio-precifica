@@ -25,6 +25,8 @@ import {
 } from '@/lib/store';
 import { trpc } from '@/lib/trpc';
 import { useAuth } from '@/_core/hooks/useAuth';
+import { calcularCapacidadeMaxima } from '@/lib/calculations';
+import { clearLocalDataClearedFlag, getNextSyncStatus, hasPendingLocalSync, isLocalDataCleared, setPendingLocalSync, type SyncStatus } from '@/lib/sync';
 
 interface DataContextType {
   data: DadosPrecificacao;
@@ -72,6 +74,8 @@ interface DataContextType {
   // Global
   resetAllData: () => void;
   importData: (data: DadosPrecificacao) => void;
+  syncStatus: SyncStatus;
+  syncNow: () => Promise<boolean>;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -86,9 +90,14 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const isRegistered = !!user || lead !== null;
   const isAuthenticated = !!user;
   const syncTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const syncNowRef = useRef<() => Promise<boolean>>(() => Promise.resolve(false));
   const saveMutation = trpc.pricing.save.useMutation();
+  const saveRef = useRef(saveMutation.mutateAsync);
+  saveRef.current = saveMutation.mutateAsync;
   const lastSyncedUser = useRef<string | null>(null);
   const [remoteDataLoaded, setRemoteDataLoaded] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>(() => hasPendingLocalSync() ? 'failed' : 'synced');
 
   // Keep the remote state authoritative for signed-in users. In particular, do
   // not let the first local render schedule a write before this query returns.
@@ -116,14 +125,17 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   // to avoid reusing the previous account's cached result.
   useEffect(() => {
     const currentEmail = user?.email ?? null;
+    // Ao sair, o estado em memória fica intacto. Se a gravação falhou,
+    // o logout preserva o localStorage para tentar de novo no próximo acesso.
+    // Uma conta diferente ainda recebe um estado local limpo abaixo.
+    if (!currentEmail) return;
     if (lastSyncedUser.current !== null && lastSyncedUser.current !== currentEmail) {
       setRemoteDataLoaded(false);
+      setPendingLocalSync(false);
       const fresh = resetData();
       setData(fresh);
-      setPerfilState(loadPerfil()); // reload defaults
-      if (currentEmail) {
-        void pricingQuery.refetch();
-      }
+      setPerfilState(loadPerfil());
+      void pricingQuery.refetch();
     }
     lastSyncedUser.current = currentEmail;
   }, [user?.email, pricingQuery.refetch]);
@@ -138,50 +150,91 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     // sync: only then may a new account's local defaults be persisted.
     if (pricingQuery.isSuccess) {
       const serverData = pricingQuery.data?.data as Record<string, unknown> | null | undefined;
-      // Extract perfil if synced
-      if (serverData?._perfil) {
-        const serverPerfil = serverData._perfil as Partial<PerfilProfissional>;
-        setPerfilState(prev => {
-          const merged = { ...prev, ...serverPerfil };
-          savePerfil(merged);
-          return merged;
-        });
-      }
-      if (serverData?.custosFixos) {
-        const { _perfil, ...pricingOnly } = serverData;
-        setData(prev => {
-          const incoming = pricingOnly as unknown as DadosPrecificacao;
-          return {
-            ...prev,
-            ...incoming,
-            regimeTributario: incoming.regimeTributario === 'mei' ? 'personalizado' : incoming.regimeTributario,
-            custosVariaveis: (incoming.custosVariaveis || prev.custosVariaveis).map(c => ({ ...c, modo: c.modo || 'mensal', percentual: c.percentual || 0 })),
-            etapasConcluidas: incoming.etapasConcluidas || {},
-          };
-        });
+      // Alteração local ainda não confirmada tem prioridade sobre a cópia antiga do servidor.
+      if (!hasPendingLocalSync()) {
+        if (serverData?._perfil) {
+          const serverPerfil = serverData._perfil as Partial<PerfilProfissional>;
+          setPerfilState(prev => {
+            const merged = { ...prev, ...serverPerfil };
+            savePerfil(merged);
+            return merged;
+          });
+        }
+        if (serverData?.custosFixos) {
+          const pricingOnly = Object.fromEntries(
+            Object.entries(serverData).filter(([key]) => key !== '_perfil'),
+          );
+          setData(prev => {
+            const incoming = pricingOnly as unknown as DadosPrecificacao;
+            return {
+              ...prev,
+              ...incoming,
+              regimeTributario: incoming.regimeTributario === 'mei' ? 'personalizado' : incoming.regimeTributario,
+              custosVariaveis: (incoming.custosVariaveis || prev.custosVariaveis).map(c => ({ ...c, modo: c.modo || 'mensal', percentual: c.percentual || 0 })),
+              etapasConcluidas: incoming.etapasConcluidas || {},
+            };
+          });
+        }
       }
       setRemoteDataLoaded(true);
     }
   }, [isAuthenticated, pricingQuery.data, pricingQuery.isSuccess]);
 
+  const syncNow = useCallback(async () => {
+    if (!isAuthenticated || !remoteDataLoaded) return false;
+
+    if (syncTimer.current) clearTimeout(syncTimer.current);
+    if (retryTimer.current) clearTimeout(retryTimer.current);
+    setSyncStatus('pending');
+    setPendingLocalSync(true);
+
+    try {
+      const result = await saveRef.current({
+        data: { ...data, _perfil: perfil } as unknown as Record<string, unknown>,
+      });
+      const nextStatus = getNextSyncStatus(result);
+      setSyncStatus(nextStatus);
+      setPendingLocalSync(nextStatus !== 'synced');
+      if (nextStatus === 'failed') {
+        retryTimer.current = setTimeout(() => void syncNowRef.current(), 5000);
+      }
+      return nextStatus === 'synced';
+    } catch (error) {
+      console.warn('[Sync] Failed to save to server:', error);
+      setSyncStatus('failed');
+      setPendingLocalSync(true);
+      retryTimer.current = setTimeout(() => void syncNowRef.current(), 5000);
+      return false;
+    }
+  }, [data, isAuthenticated, perfil, remoteDataLoaded]);
+
+  useEffect(() => {
+    syncNowRef.current = syncNow;
+  }, [syncNow]);
+
   // Save to localStorage immediately + debounce save to server
   useEffect(() => {
+    if (!isAuthenticated && isLocalDataCleared()) return;
+    if (isLocalDataCleared()) clearLocalDataClearedFlag();
     saveData(data);
     savePerfil(perfil);
 
     if (!isAuthenticated || !remoteDataLoaded) return;
     if (syncTimer.current) clearTimeout(syncTimer.current);
+    setSyncStatus('pending');
+    setPendingLocalSync(true);
     syncTimer.current = setTimeout(() => {
-      saveMutation.mutate(
-        { data: { ...data, _perfil: perfil } as unknown as Record<string, unknown> },
-        { onError: (err) => console.warn('[Sync] Failed to save to server:', err) },
-      );
+      void syncNow();
     }, 2000);
 
     return () => {
       if (syncTimer.current) clearTimeout(syncTimer.current);
     };
-  }, [data, perfil, isAuthenticated, remoteDataLoaded]);
+  }, [data, perfil, isAuthenticated, remoteDataLoaded, syncNow]);
+
+  useEffect(() => () => {
+    if (retryTimer.current) clearTimeout(retryTimer.current);
+  }, []);
 
   const updatePerfil = useCallback((updates: Partial<PerfilProfissional>) => {
     setPerfilState(prev => {
@@ -281,7 +334,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   // --- Parameters ---
   const updateSessoesMeta = useCallback((value: number) => {
-    setData(prev => ({ ...prev, sessoesMeta: value, etapasConcluidas: { ...prev.etapasConcluidas, precificacao: true } }));
+    setData(prev => ({
+      ...prev,
+      sessoesMeta: Math.max(1, Math.min(value, calcularCapacidadeMaxima(prev) || value)),
+      etapasConcluidas: { ...prev.etapasConcluidas, precificacao: true },
+    }));
   }, []);
 
   const updateMargemLucro = useCallback((value: number) => {
@@ -433,6 +490,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       removeRegistroMensal,
       resetAllData,
       importData,
+      syncStatus,
+      syncNow,
     }}>
       {children}
     </DataContext.Provider>

@@ -8,6 +8,13 @@
       "when": 1773669092273,
       "tag": "0000_spooky_malice",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1760875200000,
+      "tag": "0001_align_supabase_users",
+      "breakpoints": true
     }
   ]
 }

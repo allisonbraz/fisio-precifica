@@ -111,7 +111,8 @@ describe("leads.register", () => {
     const result = await caller.leads.register({
       nome: "Dr. João Silva",
       email: "joao@fisioterapia.com",
-      whatsapp: "(11) 99999-1234",
+        whatsapp: "(11) 99999-1234",
+        marketingConsent: true,
     });
 
     expect(result).toEqual({ success: true });
@@ -126,6 +127,7 @@ describe("leads.register", () => {
         nome: "Dr. João",
         email: "invalid-email",
         whatsapp: "(11) 99999-1234",
+        marketingConsent: true,
       })
     ).rejects.toThrow();
   });
@@ -139,6 +141,7 @@ describe("leads.register", () => {
         nome: "J",
         email: "joao@fisio.com",
         whatsapp: "(11) 99999-1234",
+        marketingConsent: true,
       })
     ).rejects.toThrow();
   });
@@ -152,8 +155,20 @@ describe("leads.register", () => {
         nome: "Dr. João",
         email: "joao@fisio.com",
         whatsapp: "123",
+        marketingConsent: true,
       })
     ).rejects.toThrow();
+  });
+
+  it("rejects marketing capture without explicit consent", async () => {
+    const caller = appRouter.createCaller(createPublicContext());
+
+    await expect(caller.leads.register({
+      nome: "Dr. João Silva",
+      email: "joao@fisioterapia.com",
+      whatsapp: "(11) 99999-1234",
+      marketingConsent: false as unknown as true,
+    })).rejects.toThrow();
   });
 });
 

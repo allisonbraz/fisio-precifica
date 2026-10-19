@@ -17,6 +17,9 @@ export const appRouter = router({
         nome: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
         email: z.string().email("E-mail inválido"),
         whatsapp: z.string().min(8, "WhatsApp deve ter pelo menos 8 dígitos"),
+        marketingConsent: z.literal(true, {
+          error: "O consentimento para contato de marketing é obrigatório",
+        }),
       }))
       .mutation(async ({ input, ctx }) => {
         const ip = ctx.req.headers['x-forwarded-for'] as string || ctx.req.ip || '';
@@ -124,6 +127,17 @@ export const appRouter = router({
             custoFixoTotal: z.number().min(0),
             custoVariavelTotal: z.number().min(0),
             observacoes: z.string().optional().default(''),
+            tipo: z.enum(['simples', 'completo']).optional(),
+            servicosVendidos: z.array(z.object({
+              tipoServicoId: z.string(),
+              quantidade: z.number().min(0),
+              receitaGerada: z.number().min(0),
+            })).optional(),
+            planosVendidos: z.array(z.object({
+              planoTratamentoId: z.string(),
+              quantidade: z.number().min(0),
+              receitaGerada: z.number().min(0),
+            })).optional(),
           })).optional(),
           _perfil: z.object({
             nome: z.string(),

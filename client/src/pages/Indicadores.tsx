@@ -4,7 +4,7 @@
  * Financial indicators and KPIs — clearer Score de Saúde explanation
  */
 
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import {
   Target,
@@ -69,6 +69,14 @@ const SCORE_DESCRIPTIONS: Record<string, { good: string; bad: string; tip: strin
   },
 };
 
+const RADAR_LABEL_LINES: Record<string, string[]> = {
+  'Margem de Lucro': ['Margem de', 'Lucro'],
+  'Taxa de Ocupação': ['Taxa de', 'Ocupação'],
+  'Ponto de Equilíbrio': ['Ponto de', 'Equilíbrio'],
+  'Diversificação de Serviços': ['Diversificação', 'de Serviços'],
+  'Planos de Tratamento': ['Planos de', 'Tratamento'],
+};
+
 export default function Indicadores() {
   const { data } = useData();
 
@@ -128,6 +136,18 @@ export default function Indicadores() {
     value: item.value,
     fullMark: 100,
   })), [scoreItems]);
+
+  const renderRadarTick = useCallback(({ x, y, payload }: { x: number; y: number; payload: { value: string } }) => {
+    const lines = RADAR_LABEL_LINES[payload.value] ?? [payload.value];
+    const offset = (lines.length - 1) * 6;
+    return (
+      <text x={x} y={y} textAnchor="middle" fill={chartColors.axis} fontSize={11}>
+        {lines.map((line, index) => (
+          <tspan key={line} x={x} dy={index === 0 ? -offset : 12}>{line}</tspan>
+        ))}
+      </text>
+    );
+  }, [chartColors.axis]);
 
   const dicas = useMemo(() => {
     const tips: { icon: typeof Lightbulb; text: string; type: 'info' | 'warning' | 'success' }[] = [];
@@ -284,7 +304,7 @@ export default function Indicadores() {
             <ResponsiveContainer width="100%" height="100%">
               <RadarChart data={radarData}>
                 <PolarGrid stroke={chartColors.grid} />
-                <PolarAngleAxis dataKey="subject" tick={{ fontSize: 11, fill: chartColors.axis }} />
+                <PolarAngleAxis dataKey="subject" tick={renderRadarTick} />
                 <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} />
                 <Radar
                   name="Score"
