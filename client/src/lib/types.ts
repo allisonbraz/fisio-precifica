@@ -74,6 +74,18 @@ export interface PlanoTratamento {
   validade: number;
 }
 
+export interface ServicoVendido {
+  tipoServicoId: string;
+  quantidade: number;
+  receitaGerada: number;
+}
+
+export interface PlanoVendido {
+  planoTratamentoId: string;
+  quantidade: number;
+  receitaGerada: number;
+}
+
 export interface RegistroMensal {
   id: string;
   mes: string;
@@ -82,6 +94,10 @@ export interface RegistroMensal {
   custoFixoTotal: number;
   custoVariavelTotal: number;
   observacoes: string;
+  /** Registros antigos, sem este campo, continuam valendo como resumo simples. */
+  tipo?: 'simples' | 'completo';
+  servicosVendidos?: ServicoVendido[];
+  planosVendidos?: PlanoVendido[];
 }
 
 export type RegimeTributario = 'mei' | 'simples' | 'presumido' | 'autonomo' | 'personalizado';

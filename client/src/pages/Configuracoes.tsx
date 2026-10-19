@@ -15,6 +15,8 @@ import {
   AlertTriangle,
   Info,
   Users,
+  Cloud,
+  CloudOff,
 } from 'lucide-react';
 import { Link } from 'wouter';
 import { Button } from '@/components/ui/button';
@@ -36,7 +38,7 @@ import { exportarDados, importarDados } from '@/lib/store';
 import { toast } from 'sonner';
 
 export default function Configuracoes() {
-  const { data, resetAllData, importData } = useData();
+  const { data, resetAllData, importData, syncStatus } = useData();
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -116,6 +118,21 @@ export default function Configuracoes() {
           </div>
         </div>
 
+        <div className={`flex items-start gap-2 rounded-xl border p-3 text-sm ${
+          syncStatus === 'synced'
+            ? 'border-sage/20 bg-sage-light/30 text-sage-dark'
+            : 'border-golden/40 bg-golden-light/40 text-terracotta-dark'
+        }`}>
+          {syncStatus === 'synced' ? <Cloud className="h-4 w-4 mt-0.5 shrink-0" /> : <CloudOff className="h-4 w-4 mt-0.5 shrink-0" />}
+          <p>
+            {syncStatus === 'synced'
+              ? 'Dados sincronizados com segurança.'
+              : syncStatus === 'pending'
+                ? 'Alterações locais aguardando sincronização.'
+                : 'Não foi possível sincronizar agora. Tentaremos novamente; seus dados seguem salvos neste navegador.'}
+          </p>
+        </div>
+
         {/* Export */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 rounded-xl bg-muted/30">
           <div>
@@ -177,6 +194,22 @@ export default function Configuracoes() {
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
+        </div>
+      </motion.div>
+
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.08 }}
+        className="bg-card rounded-2xl border border-border p-6"
+      >
+        <h3 className="font-heading font-semibold text-foreground">Privacidade e seus dados</h3>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Veja como os dados são tratados, exporte um backup acima ou solicite a exclusão pelo canal de atendimento indicado na política.
+        </p>
+        <div className="mt-3 flex gap-4 text-sm font-medium text-primary">
+          <Link href="/privacidade" className="hover:underline">Política de Privacidade</Link>
+          <Link href="/termos" className="hover:underline">Termos de Uso</Link>
         </div>
       </motion.div>
 

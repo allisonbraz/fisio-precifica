@@ -188,9 +188,15 @@ export default function Precificacao() {
   ], [metrics, chartPalette, chartColors]);
 
   const isAbaixoCusto = data.precoDefinido > 0 && data.precoDefinido < metrics.custoTotalSessao;
+  const metaExcedeCapacidade = data.sessoesMeta > metrics.capacidadeMaxima;
   const peOcupacao = metrics.capacidadeMaxima > 0
     ? ((metrics.pontoEquilibrio / metrics.capacidadeMaxima) * 100).toFixed(0)
     : '—';
+  const occupancyPresets = [
+    { label: 'Conservadora', rate: 0.65 },
+    { label: 'Equilibrada', rate: 0.75 },
+    { label: 'Cheia', rate: 0.9 },
+  ];
 
   return (
     <div className="space-y-6">
@@ -298,7 +304,7 @@ export default function Precificacao() {
             </div>
           </motion.div>
 
-          {/* Jornada de Trabalho + Duração */}
+          {/* Passo 1: agenda */}
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
@@ -306,59 +312,40 @@ export default function Precificacao() {
           >
             <div className="flex items-center gap-2">
               <Clock className="w-4 h-4 text-primary" />
-              <h3 className="font-heading font-semibold text-foreground">Jornada de Trabalho</h3>
+              <h3 className="font-heading font-semibold text-foreground">1. Sua agenda disponível</h3>
             </div>
-
-            {/* Duração da sessão */}
-            <div>
-              <label className="text-xs font-medium text-muted-foreground mb-1 flex items-center gap-1">
-                <Timer className="w-3 h-3" /> Duração da sessão
-              </label>
-              <Select
-                value={String(data.duracaoPadraoMinutos)}
-                onValueChange={(v) => {
-                  if (!isRegistered) { toast.error('Faça login para editar'); return; }
-                  updateDuracaoPadrao(parseInt(v));
-                }}
-                disabled={!isRegistered}
-              >
-                <SelectTrigger className="rounded-xl">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {DURACOES.map(d => (
-                    <SelectItem key={d.value} value={String(d.value)}>{d.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
+            <p className="text-xs leading-relaxed text-muted-foreground">
+              Informe os horários que você realmente pode oferecer. Eles definem o limite mensal da agenda.
+            </p>
+            <div className="grid gap-3 sm:grid-cols-2">
               <div>
                 <label className="text-xs font-medium text-muted-foreground mb-1 flex items-center gap-1">
-                  Horas/dia
+                  Quantas sessões você consegue atender por dia?
                   <Tooltip>
-                    <TooltipTrigger><Info className="w-3 h-3 text-muted-foreground" /></TooltipTrigger>
-                    <TooltipContent><p className="max-w-[200px] text-xs">Quantas horas por dia você dedica a atendimentos</p></TooltipContent>
+                    <TooltipTrigger aria-label="Ajuda sobre sessões por dia"><Info className="w-3 h-3 text-muted-foreground" /></TooltipTrigger>
+                    <TooltipContent><p className="max-w-[220px] text-xs">Esta é a capacidade diária que você quer disponibilizar, independentemente das horas trabalhadas.</p></TooltipContent>
                   </Tooltip>
                 </label>
                 <Input
                   type="number"
-                  value={data.horasTrabalho}
+                  value={data.sessoesporDia}
                   onChange={(e) => {
                     if (!isRegistered) { toast.error('Faça login para editar'); return; }
-                    updateHorasTrabalho(Math.max(1, parseInt(e.target.value) || 0));
+                    updateSessoesporDia(Math.max(1, parseInt(e.target.value) || 0));
                   }}
                   className="rounded-xl font-mono text-sm"
-                  min={1} max={16} disabled={!isRegistered}
+                  min={1} max={20} disabled={!isRegistered}
                 />
+                <p className="mt-1 text-[10px] leading-4 text-muted-foreground">
+                  Informe quantos horários de atendimento você quer deixar disponíveis em um dia.
+                </p>
               </div>
               <div>
                 <label className="text-xs font-medium text-muted-foreground mb-1 flex items-center gap-1">
-                  Dias úteis/mês
+                  Em um mês típico de 30 dias, em quantos dias você atende?
                   <Tooltip>
-                    <TooltipTrigger><Info className="w-3 h-3 text-muted-foreground" /></TooltipTrigger>
-                    <TooltipContent><p className="max-w-[200px] text-xs">Dias que você atende por mês</p></TooltipContent>
+                    <TooltipTrigger aria-label="Ajuda sobre dias de atendimento"><Info className="w-3 h-3 text-muted-foreground" /></TooltipTrigger>
+                    <TooltipContent><p className="max-w-[220px] text-xs">Conte apenas os dias em que haverá atendimento, mesmo que trabalhe de domingo a sábado ou em dias alternados.</p></TooltipContent>
                   </Tooltip>
                 </label>
                 <Input
@@ -371,48 +358,82 @@ export default function Precificacao() {
                   className="rounded-xl font-mono text-sm"
                   min={1} max={31} disabled={!isRegistered}
                 />
+                <p className="mt-1 text-[10px] leading-4 text-muted-foreground">
+                  Ex.: 5 dias por semana ≈ 22 dias/mês; 3 dias por semana ≈ 13 dias/mês.
+                </p>
               </div>
             </div>
-
-            <div>
-              <label className="text-xs font-medium text-muted-foreground mb-1 flex items-center gap-1">
-                Sessões por dia (capacidade)
-              </label>
-              <Input
-                type="number"
-                value={data.sessoesporDia}
-                onChange={(e) => {
-                  if (!isRegistered) { toast.error('Faça login para editar'); return; }
-                  updateSessoesporDia(Math.max(1, parseInt(e.target.value) || 0));
-                }}
-                className="rounded-xl font-mono text-sm"
-                min={1} max={20} disabled={!isRegistered}
-              />
-              {sessaoSugerida !== data.sessoesporDia && sessaoSugerida > 0 && (
-                <p className="text-[10px] text-muted-foreground mt-1">
-                  Sugestão: {sessaoSugerida} sessões/dia (sessão de {data.duracaoPadraoMinutos}min + 10min transição em {data.horasTrabalho}h)
-                </p>
-              )}
-            </div>
-
             <div className="p-2.5 rounded-xl bg-muted/30 text-xs text-muted-foreground space-y-0.5">
-              <p><Calendar className="w-3 h-3 inline mr-1" />{data.horasTrabalho * data.diasUteis}h/mês trabalhadas</p>
-              <p><Target className="w-3 h-3 inline mr-1" />Capacidade máxima: {metrics.capacidadeMaxima} sessões/mês</p>
+              <p><Calendar className="w-3 h-3 inline mr-1" />{data.diasUteis} dias de atendimento no mês típico</p>
+              <p><Target className="w-3 h-3 inline mr-1" />Sua agenda comporta até {metrics.capacidadeMaxima} sessões/mês ({data.sessoesporDia} sessões/dia × {data.diasUteis} dias).</p>
             </div>
+            <details className="group rounded-xl border border-border bg-muted/20 p-3">
+              <summary className="cursor-pointer list-none text-xs font-medium text-foreground">
+                Referência da sua rotina <span className="font-normal text-muted-foreground">(opcional)</span>
+              </summary>
+              <p className="mt-1 text-[10px] leading-4 text-muted-foreground">
+                Estes dados ajudam a visualizar sua rotina, mas não mudam a capacidade informada acima.
+              </p>
+              <div className="mt-3 space-y-3">
+                <div>
+                  <label className="mb-1 flex items-center gap-1 text-xs font-medium text-muted-foreground">
+                    <Timer className="w-3 h-3" /> Duração padrão da sessão
+                  </label>
+                  <Select
+                    value={String(data.duracaoPadraoMinutos)}
+                    onValueChange={(v) => {
+                      if (!isRegistered) { toast.error('Faça login para editar'); return; }
+                      updateDuracaoPadrao(parseInt(v));
+                    }}
+                    disabled={!isRegistered}
+                  >
+                    <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {DURACOES.map(d => (
+                        <SelectItem key={d.value} value={String(d.value)}>{d.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="mb-1 flex items-center gap-1 text-xs font-medium text-muted-foreground">
+                    Horas de atendimento por dia
+                  </label>
+                  <Input
+                    type="number"
+                    value={data.horasTrabalho}
+                    onChange={(e) => {
+                      if (!isRegistered) { toast.error('Faça login para editar'); return; }
+                      updateHorasTrabalho(Math.max(1, parseInt(e.target.value) || 0));
+                    }}
+                    className="rounded-xl font-mono text-sm"
+                    min={1} max={16} disabled={!isRegistered}
+                  />
+                  {sessaoSugerida !== data.sessoesporDia && sessaoSugerida > 0 && (
+                    <p className="mt-1 text-[10px] leading-4 text-muted-foreground">
+                      Referência: {sessaoSugerida} sessões/dia em {data.horasTrabalho}h, com sessões de {data.duracaoPadraoMinutos} min e 10 min entre atendimentos.
+                    </p>
+                  )}
+                </div>
+              </div>
+            </details>
           </motion.div>
 
-          {/* Meta de sessões */}
+          {/* Passo 2: meta */}
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.05 }}
             className="bg-card rounded-2xl border border-border p-5 space-y-4"
           >
-            <h3 className="font-heading font-semibold text-foreground">Meta de Sessões</h3>
+            <h3 className="font-heading font-semibold text-foreground">2. Sessões que você espera atender no mês</h3>
+            <p className="text-xs leading-relaxed text-muted-foreground">
+              Esta é a meta usada para compor o preço de cada sessão. A agenda disponível apenas confirma se ela é viável.
+            </p>
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <label className="text-sm font-medium text-foreground flex items-center gap-1">
-                  Sessões por mês
+                  Sua meta mensal
                   <Tooltip>
                     <TooltipTrigger><Info className="w-3 h-3 text-muted-foreground" /></TooltipTrigger>
                     <TooltipContent><p className="max-w-[200px] text-xs">Meta realista de pacientes. Recomendado: 65-75% da capacidade</p></TooltipContent>
@@ -420,29 +441,63 @@ export default function Precificacao() {
                 </label>
                 <span className="text-sm font-mono font-medium text-primary">{data.sessoesMeta}</span>
               </div>
-              <Slider
-                value={[data.sessoesMeta]}
-                onValueChange={([v]) => {
+              <Input
+                type="number"
+                value={data.sessoesMeta}
+                onChange={(e) => {
                   if (!isRegistered) { toast.error('Faça login para editar'); return; }
-                  updateSessoesMeta(v);
+                  updateSessoesMeta(Math.max(1, parseInt(e.target.value) || 0));
                 }}
                 min={1}
-                max={Math.max(metrics.capacidadeMaxima, data.sessoesMeta)}
-                step={1}
-                className="my-3"
+                max={Math.max(1, metrics.capacidadeMaxima)}
+                className="rounded-xl font-mono text-sm"
                 disabled={!isRegistered}
               />
-              <div className="flex justify-between text-xs text-muted-foreground">
-                <span>1</span>
-                <span>{metrics.capacidadeMaxima} (máx)</span>
+              <p className="mt-1 text-[10px] leading-4 text-muted-foreground">
+                Sua agenda comporta até {metrics.capacidadeMaxima} sessões/mês.
+              </p>
+              <div className="mt-3">
+                <p className="text-[10px] font-medium text-muted-foreground">Prefira uma ocupação realista:</p>
+                <div className="mt-2 grid grid-cols-3 gap-2">
+                  {occupancyPresets.map(({ label, rate }) => {
+                    const sessions = Math.max(1, Math.round(metrics.capacidadeMaxima * rate));
+                    const selected = data.sessoesMeta === sessions;
+                    return (
+                      <button
+                        key={label}
+                        type="button"
+                        aria-pressed={selected}
+                        disabled={!isRegistered || metrics.capacidadeMaxima <= 0}
+                        onClick={() => {
+                          if (!isRegistered) { toast.error('Faça login para editar'); return; }
+                          updateSessoesMeta(sessions);
+                        }}
+                        className={`min-h-11 rounded-lg border px-2 py-1.5 text-left text-[10px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 ${
+                          selected
+                            ? 'border-primary bg-primary/10 text-primary'
+                            : 'border-border bg-card text-muted-foreground hover:bg-muted'
+                        } disabled:cursor-not-allowed disabled:opacity-60`}
+                      >
+                        <span className="block font-semibold">{label}</span>
+                        <span className="block">{Math.round(rate * 100)}% · {sessions} sessões</span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
               <p className="text-[10px] text-muted-foreground mt-1">
-                Ocupação: {metrics.taxaOcupacao.toFixed(0)}% — {
-                  metrics.taxaOcupacao < 60 ? 'Considere preencher mais a agenda' :
-                  metrics.taxaOcupacao <= 80 ? 'Faixa saudável' :
-                  'Próximo da capacidade máxima'
+                Você está planejando ocupar {metrics.taxaOcupacao.toFixed(0)}% da sua agenda — {
+                  metrics.taxaOcupacao < 60 ? 'uma meta conservadora.' :
+                  metrics.taxaOcupacao <= 80 ? 'uma faixa equilibrada.' :
+                  'uma agenda próxima do limite.'
                 }
               </p>
+              {metaExcedeCapacidade && (
+                <p role="alert" className="text-xs text-destructive mt-2 flex gap-1.5">
+                  <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                  Sua meta de {data.sessoesMeta} sessões é maior que a capacidade de {metrics.capacidadeMaxima}. Reduza a meta ou aumente as sessões por dia e os dias de atendimento.
+                </p>
+              )}
             </div>
           </motion.div>
 
@@ -519,15 +574,27 @@ export default function Precificacao() {
 
         {/* Right: Results */}
         <div className="lg:col-span-2 space-y-4">
+          <div>
+            <h2 className="font-heading text-xl font-semibold text-foreground">3. Seus preços por sessão</h2>
+            <p className="mt-1 text-sm text-muted-foreground">Referências calculadas a partir da meta mensal definida ao lado.</p>
+          </div>
+          <div className="rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-sm text-muted-foreground">
+            Os preços abaixo são <strong className="text-foreground">por sessão</strong> e usam a meta de <strong className="text-foreground">{data.sessoesMeta} sessões/mês</strong>. A agenda comporta até <strong className="text-foreground">{metrics.capacidadeMaxima} sessões/mês</strong>; a capacidade valida a viabilidade, mas não altera o preço enquanto a meta permanecer a mesma.
+          </div>
+          {metaExcedeCapacidade && (
+            <div role="alert" className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+              Os preços por sessão estão pausados: a meta de {data.sessoesMeta} é maior que a capacidade de {metrics.capacidadeMaxima}. Ajuste a meta ou a agenda para continuar.
+            </div>
+          )}
           {/* Três níveis de decisão */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
-              className="bg-gradient-to-br from-terracotta/5 via-card to-terracotta/10 rounded-2xl border border-border p-6 text-center"
+              className="min-w-0 bg-gradient-to-br from-terracotta/5 via-card to-terracotta/10 rounded-2xl border border-border p-5 text-center"
             >
-              <p className="text-sm text-muted-foreground font-medium">Piso operacional</p>
-              <p className="text-3xl lg:text-4xl font-heading font-bold text-terracotta mt-2 font-mono">
+              <p className="text-sm text-muted-foreground font-medium">Piso operacional por sessão</p>
+              <p className="mt-2 min-w-0 break-words font-mono text-[clamp(1.35rem,2.25vw,1.875rem)] font-bold leading-tight tracking-[-0.025em] text-terracotta tabular-nums">
                 {formatarMoeda(metrics.precoPisoOperacional)}
               </p>
               <p className="text-xs text-muted-foreground mt-2">Operação + tributos, sem reservas ou lucro</p>
@@ -541,10 +608,10 @@ export default function Precificacao() {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: 0.03 }}
-              className="bg-gradient-to-br from-golden/5 via-card to-golden-light/10 rounded-2xl border border-border p-6 text-center"
+              className="min-w-0 bg-gradient-to-br from-golden/5 via-card to-golden-light/10 rounded-2xl border border-border p-5 text-center"
             >
-              <p className="text-sm text-muted-foreground font-medium">Preço sustentável</p>
-              <p className="text-3xl lg:text-4xl font-heading font-bold text-golden mt-2 font-mono">
+              <p className="text-sm text-muted-foreground font-medium">Preço sustentável por sessão</p>
+              <p className="mt-2 min-w-0 break-words font-mono text-[clamp(1.35rem,2.25vw,1.875rem)] font-bold leading-tight tracking-[-0.025em] text-golden tabular-nums">
                 {formatarMoeda(metrics.precoSustentavel)}
               </p>
               <p className="text-xs text-muted-foreground mt-2">Operação + tributos + reservas planejadas</p>
@@ -558,10 +625,10 @@ export default function Precificacao() {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: 0.05 }}
-              className="bg-gradient-to-br from-sage/5 via-card to-sage-light/10 rounded-2xl border border-border p-6 text-center"
+              className="min-w-0 bg-gradient-to-br from-sage/5 via-card to-sage-light/10 rounded-2xl border border-border p-5 text-center"
             >
-              <p className="text-sm text-muted-foreground font-medium">Preço estratégico</p>
-              <p className="text-3xl lg:text-4xl font-heading font-bold text-primary mt-2 font-mono">
+              <p className="text-sm text-muted-foreground font-medium">Preço estratégico por sessão</p>
+              <p className="mt-2 min-w-0 break-words font-mono text-[clamp(1.35rem,2.25vw,1.875rem)] font-bold leading-tight tracking-[-0.025em] text-primary tabular-nums">
                 {formatarMoeda(metrics.precoPorSessao)}
               </p>
               <p className="text-xs text-muted-foreground mt-2">

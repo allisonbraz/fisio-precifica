@@ -201,6 +201,7 @@ export default function Servicos() {
             <AnimatePresence>
               {data.tiposServico.map((servico) => {
                 const preco = calcularPrecoServico(data, servico);
+                const planosVinculados = data.planosTratamento.filter(plano => plano.tipoServicoId === servico.id);
                 return (
                   <motion.div
                     key={servico.id}
@@ -250,6 +251,12 @@ export default function Servicos() {
                       <p className="text-xs text-muted-foreground">Preço sugerido</p>
                       <p className="text-2xl font-mono font-bold text-primary">{formatarMoeda(preco)}</p>
                     </div>
+                    <p className="rounded-lg bg-muted/40 px-2.5 py-2 text-[11px] text-muted-foreground">
+                      <ClipboardList className="mr-1 inline h-3 w-3" />
+                      {planosVinculados.length > 0
+                        ? `${planosVinculados.length} plano${planosVinculados.length > 1 ? 's' : ''} vinculado${planosVinculados.length > 1 ? 's' : ''}: ${planosVinculados.map(plano => plano.nome).join(', ')}`
+                        : 'Nenhum plano de tratamento vinculado a este serviço.'}
+                    </p>
                   </motion.div>
                 );
               })}
@@ -261,7 +268,7 @@ export default function Servicos() {
         <TabsContent value="planos" className="space-y-4">
           <div className="flex justify-between items-center">
             <p className="text-sm text-muted-foreground">
-              Crie planos de tratamento com desconto para fidelizar pacientes
+              Cada plano fica vinculado a um serviço e aplica o desconto sobre as sessões incluídas.
             </p>
             <Button size="sm" variant="outline" className="rounded-xl gap-1.5" onClick={() => openPlanoDialog()} disabled={!isRegistered}>
               <Plus className="w-4 h-4" /> Novo Plano
@@ -414,8 +421,9 @@ export default function Servicos() {
           </DialogHeader>
           <div className="space-y-4 pt-2">
             <div>
-              <label className="text-sm font-medium mb-1.5 block">Nome do plano</label>
-              <Input value={pNome} onChange={(e) => setPNome(e.target.value)} placeholder="Ex: Plano 10 sessões" className="rounded-xl" />
+              <label className="text-sm font-medium mb-1.5 block">Nome do plano de tratamento</label>
+              <Input value={pNome} onChange={(e) => setPNome(e.target.value)} placeholder="Ex: Reabilitação de joelho" className="rounded-xl" />
+              <p className="mt-1 text-xs text-muted-foreground">Use o foco clínico do tratamento. A quantidade de sessões fica só na configuração abaixo.</p>
             </div>
             <div>
               <label className="text-sm font-medium mb-1.5 block">Tipo de serviço</label>

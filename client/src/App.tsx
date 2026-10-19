@@ -23,6 +23,7 @@ import Perfil from "./pages/Perfil";
 import Leads from "./pages/Leads";
 import Login from "./pages/Login";
 import Landing from "./pages/Landing";
+import Legal from "./pages/Legal";
 
 function Router() {
   const { isRegistered } = useData();
@@ -31,6 +32,8 @@ function Router() {
   return (
     <Switch>
       <Route path="/login" component={Login} />
+      <Route path="/privacidade">{() => <Legal document="privacy" />}</Route>
+      <Route path="/termos">{() => <Legal document="terms" />}</Route>
       <Route>
         {!loading && !user ? (
           <Landing />

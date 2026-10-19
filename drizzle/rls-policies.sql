@@ -1,4 +1,6 @@
 -- Row Level Security Policies for fisio-precifica
+-- Este arquivo pode ser aplicado de novo: cada política é removida antes de ser criada.
+-- A coluna users."supabaseId" é uuid e comparada com auth.uid() (também uuid).
 -- Run this in the Supabase SQL Editor or as a migration
 --
 -- Prerequisites:
@@ -10,6 +12,10 @@
 -- ============================================
 
 ALTER TABLE pricing_data ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can read own pricing data" ON pricing_data;
+DROP POLICY IF EXISTS "Users can insert own pricing data" ON pricing_data;
+DROP POLICY IF EXISTS "Users can update own pricing data" ON pricing_data;
 
 -- Users can read their own pricing data
 CREATE POLICY "Users can read own pricing data"
@@ -44,12 +50,14 @@ CREATE POLICY "Users can update own pricing data"
 
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can read own profile" ON users;
+
 -- Users can read their own profile
 CREATE POLICY "Users can read own profile"
   ON users
   FOR SELECT
   USING (
-    "supabaseId" = auth.uid()::text
+    "supabaseId" = auth.uid()
   );
 
 -- Service role (backend) can manage all users
@@ -60,6 +68,8 @@ CREATE POLICY "Users can read own profile"
 -- ============================================
 
 ALTER TABLE leads ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Anyone can register as lead" ON leads;
 
 -- Public can insert leads (registration form)
 CREATE POLICY "Anyone can register as lead"

@@ -98,6 +98,7 @@ export function calcularCustoOperacionalPorSessao(data: DadosPrecificacao, preco
 
 /** Cobre custos obrigatórios e tributos, sem reservas ou lucro. */
 export function calcularPrecoPisoOperacional(data: DadosPrecificacao): number {
+  if (!metaDeSessoesEhViavel(data)) return 0;
   const c = componentes(data);
   if (c.sessoes <= 0) return 0;
   const base = (c.fixos + c.variaveisMensais) / c.sessoes + c.variavelUnitario;
@@ -106,6 +107,7 @@ export function calcularPrecoPisoOperacional(data: DadosPrecificacao): number {
 
 /** Cobre operação e reservas planejadas, ainda sem margem de lucro. */
 export function calcularPrecoSustentavel(data: DadosPrecificacao): number {
+  if (!metaDeSessoesEhViavel(data)) return 0;
   const c = componentes(data);
   if (c.sessoes <= 0) return 0;
   const base = (c.fixos + c.variaveisMensais + c.reservasFixas) / c.sessoes + c.variavelUnitario;
@@ -114,6 +116,7 @@ export function calcularPrecoSustentavel(data: DadosPrecificacao): number {
 
 /** Preço sustentável acrescido da margem desejada sobre a receita. */
 export function calcularPrecoEstrategico(data: DadosPrecificacao): number {
+  if (!metaDeSessoesEhViavel(data)) return 0;
   const c = componentes(data);
   if (c.sessoes <= 0) return 0;
   const base = (c.fixos + c.variaveisMensais + c.reservasFixas) / c.sessoes + c.variavelUnitario;
@@ -174,15 +177,24 @@ export function calcularPontoEquilibrio(data: DadosPrecificacao, precoSessao: nu
 }
 
 export function calcularHorasTrabalhadas(data: DadosPrecificacao): number { return data.diasUteis * data.horasTrabalho; }
+export function calcularCapacidadeMaxima(data: DadosPrecificacao): number {
+  return Math.max(0, data.diasUteis) * Math.max(0, data.sessoesporDia);
+}
+/** A meta de sessões só entra no preço quando cabe na agenda informada. */
+export function metaDeSessoesEhViavel(data: DadosPrecificacao): boolean {
+  const capacidade = calcularCapacidadeMaxima(data);
+  return data.sessoesMeta > 0 && capacidade > 0 && data.sessoesMeta <= capacidade;
+}
 export function calcularTaxaOcupacao(data: DadosPrecificacao): number {
-  const capacidade = data.diasUteis * data.sessoesporDia;
+  const capacidade = calcularCapacidadeMaxima(data);
   return capacidade > 0 ? data.sessoesMeta / capacidade * 100 : 0;
 }
 export function calcularValorHora(data: DadosPrecificacao, precoSessao: number, duracaoMinutos?: number): number {
   const duracao = duracaoMinutos ?? data.duracaoPadraoMinutos ?? 50;
   return duracao > 0 ? precoSessao / duracao * 60 : 0;
 }
-export function calcularCapacidadeMaxima(data: DadosPrecificacao): number { return data.diasUteis * data.sessoesporDia; }
 export function sugerirSessoesPorDia(horasTrabalho: number, duracaoMinutos: number): number {
-  return Math.floor(horasTrabalho * 60 / (duracaoMinutos + 10));
+  if (horasTrabalho <= 0 || duracaoMinutos <= 0) return 0;
+  // O intervalo de 10 minutos existe só entre sessões, não depois da última.
+  return Math.floor((horasTrabalho * 60 + 10) / (duracaoMinutos + 10));
 }

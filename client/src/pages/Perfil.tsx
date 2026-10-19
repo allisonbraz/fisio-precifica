@@ -506,8 +506,9 @@ export default function Perfil() {
       <div class="section-title">Parâmetros Utilizados</div>
       <div class="highlight-box">
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px;">
-          <div><strong>Dias úteis/mês:</strong> ${data.diasUteis}</div>
+          <div><strong>Dias de atendimento/mês:</strong> ${data.diasUteis} (mês típico de 30 dias)</div>
           <div><strong>Sessões/dia:</strong> ${data.sessoesporDia}</div>
+          <div><strong>Capacidade mensal:</strong> ${data.diasUteis * data.sessoesporDia} sessões</div>
           <div><strong>Meta sessões/mês:</strong> ${data.sessoesMeta}</div>
           <div><strong>Margem de lucro:</strong> ${(data.margemLucro * 100).toFixed(0)}%</div>
           <div><strong>Taxa de ocupação:</strong> ${taxaOcupacao.toFixed(1)}%</div>
