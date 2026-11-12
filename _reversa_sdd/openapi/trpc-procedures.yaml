@@ -1,0 +1,118 @@
+openapi: 3.0.3
+info:
+  title: FisioPrecifica tRPC
+  version: "1.0.0"
+  description: >
+    O fio real não é REST. É tRPC 11 em POST /api/trpc, com batch HTTP e
+    SuperJSON. Este arquivo lista procedimentos, auth e payloads para um
+    agente não ter que reabrir routers.ts. Não publique isto como se o
+    servidor falasse OpenAPI.
+servers:
+  - url: /api/trpc
+paths:
+  /auth.me:
+    get:
+      summary: Usuário da sessão
+      description: publicProcedure. Sem Bearer, data é null. Com Bearer válido, faz upsert.
+      responses:
+        "200":
+          description: User ou null
+  /leads.register:
+    post:
+      summary: Captura de lead
+      description: rateLimitedProcedure, 5 por 60s por IP no processo.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [nome, email, whatsapp, marketingConsent]
+              properties:
+                nome: { type: string, minLength: 2 }
+                email: { type: string, format: email }
+                whatsapp: { type: string, minLength: 8 }
+                marketingConsent: { type: boolean, enum: [true] }
+      responses:
+        "200":
+          description: "{ success: true }"
+        "429":
+          description: Muitas requisições. Tente novamente em 1 minuto.
+  /leads.list:
+    get:
+      summary: Lista paginada de leads
+      description: adminProcedure. limit 1..500 default 50, offset default 0.
+      responses:
+        "200": { description: "{ items, total, limit, offset }" }
+        "403": { description: "You do not have required permission (10002)" }
+  /leads.exportAll:
+    get:
+      summary: Todos os leads
+      description: adminProcedure.
+      responses:
+        "200": { description: "{ items }" }
+  /pricing.save:
+    post:
+      summary: Substitui o jsonb do e-mail autenticado
+      description: protectedProcedure. Ver database/data-dictionary.md. passthrough.
+      responses:
+        "200": { description: "{ success: boolean }. false se o banco está indisponível." }
+        "401": { description: "Please login (10001)" }
+  /pricing.load:
+    get:
+      summary: Lê o jsonb do e-mail autenticado
+      description: protectedProcedure. data null se não houver linha ou se o banco falhar.
+      responses:
+        "200": { description: "{ data: json | null }" }
+        "401": { description: "Please login (10001)" }
+  /contacts.list:
+    get:
+      summary: Contatos unificados
+      description: adminProcedure. Junta leads e users por e-mail normalizado e enriquece com _perfil.
+      responses:
+        "200": { description: "{ items, total }" }
+  /contacts.exportAll:
+    get:
+      summary: Exporta contatos em páginas de 500
+      description: adminProcedure.
+      responses:
+        "200": { description: "{ items }" }
+  /contacts.changeEmail:
+    post:
+      summary: Troca e-mail no Auth e nas três tabelas
+      description: adminProcedure. Exige SUPABASE_SERVICE_ROLE_KEY.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [currentEmail, newEmail]
+              properties:
+                currentEmail: { type: string, format: email }
+                newEmail: { type: string, format: email }
+      responses:
+        "200": { description: "{ success: true }" }
+        "404": { description: "Usuário não encontrado com esse e-mail." }
+        "409": { description: "Já existe um usuário com esse novo e-mail." }
+        "500": { description: Service role ausente ou erro do Supabase. }
+  /system.health:
+    get:
+      summary: Saúde
+      description: publicProcedure. Input timestamp >= 0. Resposta { ok: true }. O timestamp não é usado.
+      responses:
+        "200": { description: "{ ok: true }" }
+  /system.notifyOwner:
+    post:
+      summary: Notificação legada Forge
+      description: adminProcedure. title e content não vazios.
+      responses:
+        "200": { description: "{ success: boolean }" }
+components:
+  securitySchemes:
+    bearerJwt:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+security:
+  - bearerJwt: []
