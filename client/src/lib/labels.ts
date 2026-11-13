@@ -1,32 +1,9 @@
-/** Terminologia padronizada — importar em vez de usar strings hardcoded */
-export const LABELS = {
-  custoTotalMensal: 'Custo Total Mensal',
-  custoOperacionalMensal: 'Custo Operacional Mensal',
-  custoPorSessao: 'Custo por Sessão',
-  precoPorSessao: 'Preço por Sessão',
-  receitaBruta: 'Receita Bruta Estimada',
-  receitaLiquida: 'Receita Líquida',
-  impostos: 'Impostos sobre Receita',
-  lucroOperacional: 'Lucro Operacional',
-  lucroDisponivel: 'Lucro Disponível',
-  sessoesMeta: 'Meta de Sessões/Mês',
-  sessoesRealizadas: 'Sessões Realizadas',
-  taxaOcupacao: 'Taxa de Ocupação',
-  pontoEquilibrio: 'Ponto de Equilíbrio',
-  valorHora: 'Valor por Hora',
-  margemLucro: 'Margem de Lucro',
-  reservasEstrategicas: 'Reservas Estratégicas',
-  custoFixo: 'Custos Fixos',
-  custoVariavel: 'Custos Variáveis',
-  depreciacao: 'Depreciação',
-} as const;
+import { perfilFisioterapia } from '@shared/pricing-engine';
 
-export const REGIMES_TRIBUTARIOS = [
-  { value: 'simples', label: 'Simples Nacional', imposto: 0.06, desc: 'Confirme a alíquota efetiva com seu contador. Para fisioterapia, o Fator R pode alterar o anexo.' },
-  { value: 'presumido', label: 'Lucro Presumido', imposto: 0.1433, desc: 'Estimativa inicial; ISS e demais tributos variam. Confirme a alíquota efetiva.' },
-  { value: 'autonomo', label: 'Autônomo (pessoa física)', imposto: 0.15, desc: 'Estimativa inicial. IRPF e tributos municipais dependem da situação individual.' },
-  { value: 'personalizado', label: 'Personalizado', imposto: 0, desc: 'Defina sua alíquota manualmente' },
-] as const;
+/** Terminologia padronizada — vem do perfil de fisioterapia, sem mudar o texto. */
+export const LABELS = perfilFisioterapia.rotulos;
+
+export const REGIMES_TRIBUTARIOS = perfilFisioterapia.regimes;
 
 export const MARGIN_BANDS = {
   risky: { max: 0.10, label: 'Arriscada', desc: 'Abaixo de 10% — pouca folga para imprevistos' },

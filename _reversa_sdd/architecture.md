@@ -6,7 +6,9 @@
 
 Cliente rico. O servidor é autenticação, autorização e persistência de documento. Não há camada de domínio no servidor. 🟢
 
-Isso é bom para extrair `pricing-engine` e ruim para garantir que todo cliente (CRM futuro, app de fono, planilha) use a mesma fórmula: a fórmula viaja dentro do bundle. 🟡 recomendação de empacotar o TS puro e versioná-lo; o código ainda não faz isso.
+O cálculo mora em `shared/pricing-engine`, TypeScript puro, sem React nem tRPC. O app reexporta as mesmas funções em `client/src/lib/calculations.ts`. O perfil só monta o documento inicial; não entra no denominador. 🟢
+
+Os perfis ficam em `shared/pricing-engine/profiles/registro.ts`. Fisioterapia está completa, com o catálogo que o app já usava. Fonoaudiologia, terapia ocupacional, nutrição, psicologia e educação física estão no registro com parâmetros `🔴 LACUNA` e catálogos vazios. `criarDocumentoInicial` recusa esses perfis. O módulo `produtos` (`calcularPrecoVendaAparelho`) continua só como interface. 🟢
 
 ## Integrações
 

@@ -1,5 +1,9 @@
 # Extração do pricing-engine, Design Técnico
 
+## Estado depois da extração
+
+O corte abaixo foi aplicado em `shared/pricing-engine`. O registro das profissões está em `profiles/registro.ts`. Fisioterapia é o único perfil com números. Fonoaudiologia, terapia ocupacional, nutrição, psicologia e educação física entram na lista com `🔴 LACUNA`. Ver `../addenda/001-pricing-engine.md`.
+
 ## Corte proposto
 
 ```
