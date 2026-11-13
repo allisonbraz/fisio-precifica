@@ -96,6 +96,7 @@ Cada pasta tem `requirements.md`, `design.md` e `tasks.md`.
 | [interface/](interface/) | Rotas, telas e gates |
 | [contatos/](contatos/) | Leads e central administrativa |
 | [extracao-pricing-engine/](extracao-pricing-engine/) | O que mudar para o pacote compartilhado e o módulo do CRM |
+| [addenda/001-pricing-engine.md](addenda/001-pricing-engine.md) | Onde o motor ficou depois da extração, e a lista de profissões |
 
 ### API, histórias e rastreio
 
