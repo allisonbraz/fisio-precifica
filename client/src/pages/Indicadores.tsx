@@ -8,7 +8,6 @@ import { useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import {
   Target,
-  TrendingUp,
   Clock,
   Users,
   DollarSign,
@@ -16,10 +15,8 @@ import {
   AlertTriangle,
   CheckCircle2,
   Lightbulb,
-  Info,
   HelpCircle,
 } from 'lucide-react';
-import { Progress } from '@/components/ui/progress';
 import {
   Tooltip as UITooltip,
   TooltipContent,

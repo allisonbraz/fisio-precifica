@@ -15,7 +15,6 @@ import {
   Stethoscope,
   Download,
   FileText,
-  Save,
   Phone,
   Instagram,
   FileDigit,
@@ -154,7 +153,6 @@ export default function Perfil() {
     if (perfil.especialidades) {
       const esp = perfil.especialidades.length > 60 ? perfil.especialidades.slice(0, 57) + '...' : perfil.especialidades;
       ctx.fillText(esp, textX, y);
-      y += 18;
     }
 
     // Divider
