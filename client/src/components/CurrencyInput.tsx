@@ -4,7 +4,7 @@
  * Formatted currency input with R$ prefix
  */
 
-import { useState, useCallback } from 'react';
+import { useState } from 'react';
 import { Input } from '@/components/ui/input';
 
 interface CurrencyInputProps {

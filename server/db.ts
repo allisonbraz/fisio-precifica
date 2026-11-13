@@ -232,7 +232,7 @@ export async function getUnifiedContacts(limit = 100, offset = 0): Promise<{ ite
     .map(r => (r.email as string)?.toLowerCase().trim())
     .filter(Boolean);
 
-  let perfilByEmail = new Map<string, Record<string, string>>();
+  const perfilByEmail = new Map<string, Record<string, string>>();
   if (emails.length > 0) {
     const pricingRows = await db.select({ ownerEmail: pricingData.ownerEmail, data: pricingData.data })
       .from(pricingData)

@@ -135,7 +135,7 @@ const ITEMS_TO_MIGRATE_TO_RESERVAS = new Set([
   'aquisição e manutenção de equipamentos',
 ]);
 
-function findDefaultByName(nome: string, defaults: { nome: string; descricao: string; frequencia: FrequenciaCusto }[]): { nome: string; descricao: string; frequencia: FrequenciaCusto } | undefined {
+function findDefaultByName<T extends { nome: string }>(nome: string, defaults: T[]): T | undefined {
   const normalized = nome.toLowerCase().trim();
   const exact = defaults.find(d => d.nome.toLowerCase().trim() === normalized);
   if (exact) return exact;
@@ -144,13 +144,39 @@ function findDefaultByName(nome: string, defaults: { nome: string; descricao: st
   );
 }
 
+type LegacyCost = {
+  id?: string;
+  nome: string;
+  valor?: number;
+  frequencia?: FrequenciaCusto;
+  observacao?: string;
+  descricao?: string;
+  isDepreciacao?: boolean;
+  temParcelaAtiva?: boolean;
+  modo?: CustoVariavel['modo'] | ReservaEstrategica['modo'];
+  percentual?: number;
+};
+
+type LegacyStored = {
+  pacotes?: DadosPrecificacao['planosTratamento'];
+  planosTratamento?: DadosPrecificacao['planosTratamento'];
+  custosFixos?: LegacyCost[];
+  custosVariaveis?: LegacyCost[];
+  reservasEstrategicas?: LegacyCost[];
+  duracaoPadraoMinutos?: number;
+  regimeTributario?: string;
+  impostoPercentual?: number;
+  margemLucro?: number;
+  etapasConcluidas?: DadosPrecificacao['etapasConcluidas'];
+};
+
 // ===== LOAD / SAVE =====
 
 export function loadData(): DadosPrecificacao {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
-      const parsed = JSON.parse(stored);
+      const parsed = JSON.parse(stored) as LegacyStored;
       if (parsed.pacotes && !parsed.planosTratamento) {
         parsed.planosTratamento = parsed.pacotes;
         delete parsed.pacotes;
@@ -163,16 +189,16 @@ export function loadData(): DadosPrecificacao {
       ]);
 
       if (parsed.custosFixos) {
-        const migratedToReservas: any[] = [];
-        parsed.custosFixos = parsed.custosFixos.filter((c: any) => {
+        const migratedToReservas: LegacyCost[] = [];
+        parsed.custosFixos = parsed.custosFixos.filter((c) => {
           if (ITEMS_TO_MIGRATE_TO_RESERVAS.has(c.nome.toLowerCase().trim())) {
-            if (c.valor > 0) migratedToReservas.push(c);
+            if ((c.valor ?? 0) > 0) migratedToReservas.push(c);
             return false;
           }
           return true;
         });
 
-        parsed.custosFixos = parsed.custosFixos.map((c: any) => {
+        parsed.custosFixos = parsed.custosFixos.map((c) => {
           const mappedName = CUSTOS_FIXOS_NAME_MAP[c.nome] || c.nome;
           const allDefaults = [...defaultCustosFixos, ...defaultDepreciacao];
           const defaultById = allDefaults.find(d => d.id === c.id);
@@ -185,20 +211,20 @@ export function loadData(): DadosPrecificacao {
             frequencia: c.frequencia || (matched?.frequencia || 'mensal'),
             descricao: matched?.descricao || c.descricao || '',
             observacao: cleanObs,
-            isDepreciacao: c.isDepreciacao || (matched as any)?.isDepreciacao || false,
-            temParcelaAtiva: c.temParcelaAtiva ?? (matched as any)?.temParcelaAtiva ?? false,
+            isDepreciacao: c.isDepreciacao || matched?.isDepreciacao || false,
+            temParcelaAtiva: c.temParcelaAtiva ?? matched?.temParcelaAtiva ?? false,
           };
         });
 
-        const deduped = new Map<string, any>();
+        const deduped = new Map<string, LegacyCost>();
         for (const c of parsed.custosFixos) {
           const key = c.nome.toLowerCase().trim();
           const existing = deduped.get(key);
-          if (!existing || c.valor > existing.valor) deduped.set(key, c);
+          if (!existing || (c.valor ?? Number.NaN) > (existing.valor ?? Number.NaN)) deduped.set(key, c);
         }
         parsed.custosFixos = Array.from(deduped.values());
 
-        const existingNames = new Set(parsed.custosFixos.map((c: any) => c.nome.toLowerCase()));
+        const existingNames = new Set(parsed.custosFixos.map((c) => c.nome.toLowerCase()));
         for (const def of [...defaultCustosFixos, ...defaultDepreciacao]) {
           if (!existingNames.has(def.nome.toLowerCase())) parsed.custosFixos.push({ ...def });
         }
@@ -209,10 +235,10 @@ export function loadData(): DadosPrecificacao {
       }
 
       if (parsed.custosVariaveis) {
-        parsed.custosVariaveis = parsed.custosVariaveis.filter((c: any) => {
+        parsed.custosVariaveis = parsed.custosVariaveis.filter((c) => {
           const impostoLegado = c.id === '8' || c.id === '9' || /imposto|\bdas\b|irpj/i.test(c.nome);
-          return !impostoLegado || c.valor > 0;
-        }).map((c: any) => {
+          return !impostoLegado || (c.valor ?? 0) > 0;
+        }).map((c) => {
           if (c.id === '2' && c.nome === 'Material descartável por sessão') {
             c.nome = 'Materiais de uso único por sessão';
           }
@@ -224,14 +250,14 @@ export function loadData(): DadosPrecificacao {
             ...c,
             nome: impostoLegado ? `${c.nome} — revisar possível duplicidade` : c.nome,
             frequencia: c.frequencia || 'mensal',
-            modo: c.modo || (matched as CustoVariavel | undefined)?.modo || 'mensal',
+            modo: c.modo || matched?.modo || 'mensal',
             percentual: c.percentual || 0,
             descricao: impostoLegado
               ? 'Valor legado preservado. Se este tributo já estiver na alíquota da Precificação, zere este item para não contar duas vezes.'
               : matched?.descricao || c.descricao || '',
           };
         });
-        const existingNames = new Set(parsed.custosVariaveis.map((c: any) => c.nome.toLowerCase()));
+        const existingNames = new Set(parsed.custosVariaveis.map((c) => c.nome.toLowerCase()));
         for (const def of defaultCustosVariaveis) {
           if (!existingNames.has(def.nome.toLowerCase())) parsed.custosVariaveis.push({ ...def });
         }
@@ -242,13 +268,13 @@ export function loadData(): DadosPrecificacao {
       } else {
         // Migration: split old "Férias e 13º (provisão)" into two separate items
         const oldComboIdx = parsed.reservasEstrategicas.findIndex(
-          (r: any) => r.nome.toLowerCase().includes('férias e 13')
+          (r) => r.nome.toLowerCase().includes('férias e 13')
         );
         if (oldComboIdx !== -1) {
           parsed.reservasEstrategicas.splice(oldComboIdx, 1);
         }
 
-        const existingNames = new Set(parsed.reservasEstrategicas.map((r: any) => r.nome.toLowerCase()));
+        const existingNames = new Set(parsed.reservasEstrategicas.map((r) => r.nome.toLowerCase()));
         for (const def of defaultReservasEstrategicas) {
           if (!existingNames.has(def.nome.toLowerCase())) parsed.reservasEstrategicas.push({ ...def });
         }
@@ -277,7 +303,7 @@ export function loadData(): DadosPrecificacao {
         parsed.margemLucro = parsed.margemLucro / (1 + parsed.margemLucro);
       }
 
-      return { ...defaultData, ...parsed };
+      return { ...defaultData, ...(parsed as unknown as Partial<DadosPrecificacao>) };
     }
   } catch (e) {
     console.error('Erro ao carregar dados:', e);

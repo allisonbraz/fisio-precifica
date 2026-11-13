@@ -6,7 +6,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { trpc } from '@/lib/trpc';
-import { KeyRound } from 'lucide-react';
 
 export default function Login() {
   const [, setLocation] = useLocation();
@@ -30,8 +29,9 @@ export default function Login() {
       if (error) throw error;
       toast.success('E-mail de recuperação enviado! Verifique sua caixa de entrada.');
       setMode('login');
-    } catch (error: any) {
-      toast.error(error?.message || 'Erro ao enviar e-mail de recuperação');
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : '';
+      toast.error(message || 'Erro ao enviar e-mail de recuperação');
     } finally {
       setLoading(false);
     }
@@ -72,8 +72,8 @@ export default function Login() {
         await utils.auth.me.invalidate();
         setLocation('/');
       }
-    } catch (error: any) {
-      const msg = error?.message || 'Erro ao processar';
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'Erro ao processar';
       if (msg.includes('Invalid login')) {
         toast.error('E-mail ou senha incorretos');
       } else if (msg.includes('already registered')) {

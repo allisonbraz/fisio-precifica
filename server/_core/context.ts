@@ -38,7 +38,7 @@ export async function createContext(
         user = (await db.getUserBySupabaseId(supabaseUser.id)) ?? null;
       }
     }
-  } catch (error) {
+  } catch {
     user = null;
   }
 

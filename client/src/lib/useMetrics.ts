@@ -15,7 +15,6 @@ import {
   calcularPrecoMinimo,
   calcularPrecoPisoOperacional,
   calcularPrecoSustentavel,
-  calcularMargemDoPreco,
   calcularLucroOperacional,
   calcularLucroDisponivel,
   calcularPontoEquilibrio,

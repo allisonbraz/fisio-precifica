@@ -50,10 +50,8 @@ import StatCard from '@/components/StatCard';
 import { useData } from '@/contexts/DataContext';
 import { useMetrics } from '@/lib/useMetrics';
 import {
-  calcularTotalReservas,
   formatarMoeda,
   formatarPercentual,
-  ReservaEstrategica,
 } from '@/lib/store';
 import { toast } from 'sonner';
 

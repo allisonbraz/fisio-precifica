@@ -14,6 +14,7 @@ import {
   RegistroMensal,
   LeadData,
   PerfilProfissional,
+  RegimeTributario,
   loadData,
   saveData,
   resetData,
@@ -57,7 +58,7 @@ interface DataContextType {
   updateDiasUteis: (value: number) => void;
   updateSessoesporDia: (value: number) => void;
   updateDuracaoPadrao: (value: number) => void;
-  updateRegimeTributario: (regime: string, imposto: number) => void;
+  updateRegimeTributario: (regime: RegimeTributario, imposto: number) => void;
   updateImpostoPercentual: (value: number) => void;
   // Serviços
   addTipoServico: (servico: Omit<TipoServico, 'id'>) => void;
@@ -94,7 +95,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const syncNowRef = useRef<() => Promise<boolean>>(() => Promise.resolve(false));
   const saveMutation = trpc.pricing.save.useMutation();
   const saveRef = useRef(saveMutation.mutateAsync);
-  saveRef.current = saveMutation.mutateAsync;
+  useEffect(() => {
+    saveRef.current = saveMutation.mutateAsync;
+  }, [saveMutation.mutateAsync]);
   const lastSyncedUser = useRef<string | null>(null);
   const [remoteDataLoaded, setRemoteDataLoaded] = useState(false);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>(() => hasPendingLocalSync() ? 'failed' : 'synced');
@@ -105,20 +108,32 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     undefined,
     { enabled: isAuthenticated, refetchOnMount: 'always' },
   );
+  const refetchPricing = pricingQuery.refetch;
 
-  // Auto-register lead data when user logs in via Supabase
+  // Ajusta o lead durante o render quando a sessão chega sem cadastro local.
+  // O efeito abaixo só persiste; não chama setState.
+  if (user?.email && !lead) {
+    setLead({
+      nome: user.name || user.email.split('@')[0],
+      email: user.email,
+      whatsapp: '',
+      registeredAt: new Date().toISOString(),
+    });
+  }
+
   useEffect(() => {
-    if (user?.email && !lead) {
-      const autoLead: LeadData = {
-        nome: user.name || user.email.split('@')[0],
-        email: user.email,
-        whatsapp: '',
-        registeredAt: new Date().toISOString(),
-      };
-      saveLead(autoLead);
-      setLead(autoLead);
+    if (!user?.email || !lead || lead.email !== user.email) return;
+    const stored = loadLead();
+    if (
+      stored?.email === lead.email &&
+      stored.registeredAt === lead.registeredAt &&
+      stored.nome === lead.nome &&
+      stored.whatsapp === lead.whatsapp
+    ) {
+      return;
     }
-  }, [user, lead]);
+    saveLead(lead);
+  }, [user?.email, lead]);
 
   // Reset local data and fetch again when the authenticated account changes.
   // The query key has no user identifier, so an explicit refetch is required
@@ -135,22 +150,23 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       const fresh = resetData();
       setData(fresh);
       setPerfilState(loadPerfil());
-      void pricingQuery.refetch();
+      void refetchPricing();
     }
     lastSyncedUser.current = currentEmail;
-  }, [user?.email, pricingQuery.refetch]);
+  }, [user?.email, refetchPricing]);
 
+  // O merge do servidor precisa continuar neste efeito: a ordem em relação ao
+  // reset de conta (efeito acima) define qual cópia vence. Mover o setState
+  // para o render mudaria essa corrida.
+  /* eslint-disable react-hooks/set-state-in-effect -- ver comentário acima */
   useEffect(() => {
     if (!isAuthenticated) {
       setRemoteDataLoaded(false);
       return;
     }
 
-    // A successful response with no saved data is also a completed initial
-    // sync: only then may a new account's local defaults be persisted.
     if (pricingQuery.isSuccess) {
       const serverData = pricingQuery.data?.data as Record<string, unknown> | null | undefined;
-      // Alteração local ainda não confirmada tem prioridade sobre a cópia antiga do servidor.
       if (!hasPendingLocalSync()) {
         if (serverData?._perfil) {
           const serverPerfil = serverData._perfil as Partial<PerfilProfissional>;
@@ -179,6 +195,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       setRemoteDataLoaded(true);
     }
   }, [isAuthenticated, pricingQuery.data, pricingQuery.isSuccess]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const syncNow = useCallback(async () => {
     if (!isAuthenticated || !remoteDataLoaded) return false;
@@ -221,6 +238,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
     if (!isAuthenticated || !remoteDataLoaded) return;
     if (syncTimer.current) clearTimeout(syncTimer.current);
+    // O indicador precisa mudar no mesmo ciclo da gravação local, não 2s depois.
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- badge de sync antes do debounce
     setSyncStatus('pending');
     setPendingLocalSync(true);
     syncTimer.current = setTimeout(() => {
@@ -365,8 +384,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     setData(prev => ({ ...prev, duracaoPadraoMinutos: value }));
   }, []);
 
-  const updateRegimeTributario = useCallback((regime: string, imposto: number) => {
-    setData(prev => ({ ...prev, regimeTributario: regime as any, impostoPercentual: imposto, etapasConcluidas: { ...prev.etapasConcluidas, precificacao: true } }));
+  const updateRegimeTributario = useCallback((regime: RegimeTributario, imposto: number) => {
+    setData(prev => ({ ...prev, regimeTributario: regime, impostoPercentual: imposto, etapasConcluidas: { ...prev.etapasConcluidas, precificacao: true } }));
   }, []);
 
   const updateImpostoPercentual = useCallback((value: number) => {

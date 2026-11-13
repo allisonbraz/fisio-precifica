@@ -16,7 +16,6 @@ import {
   Users,
   DollarSign,
   Percent,
-  Info,
   ArrowRight,
 } from 'lucide-react';
 import { Link } from 'wouter';
@@ -34,7 +33,6 @@ import {
   formatarMoeda,
 } from '@/lib/store';
 import {
-  AreaChart,
   Area,
   XAxis,
   YAxis,
@@ -46,14 +44,13 @@ import {
   ComposedChart,
   Bar,
 } from 'recharts';
-import { CHART_TOOLTIP_STYLE, getChartColors, getChartPalette } from '@/lib/utils';
+import { CHART_TOOLTIP_STYLE, getChartColors } from '@/lib/utils';
 
 export default function Simulacao() {
   const { data } = useData();
   const [precoCustom, setPrecoCustom] = useState(150);
 
   const chartColors = useMemo(() => getChartColors(), []);
-  const chartPalette = useMemo(() => getChartPalette(), []);
 
   const precoPorSessao = calcularPrecoMinimo(data);
   const custoSessao = calcularCustoTotalPorSessao(data);
@@ -71,9 +68,9 @@ export default function Simulacao() {
     }));
   }, [data, custoSessao]);
 
-  // Custom simulation
-  const customSim = useMemo(() => simularPreco(data, precoCustom), [data, precoCustom]);
-  const customPE = useMemo(() => calcularPontoEquilibrio(data, precoCustom), [data, precoCustom]);
+  // Custom simulation. Pure calls: the same inputs always yield the same quote.
+  const customSim = simularPreco(data, precoCustom);
+  const customPE = calcularPontoEquilibrio(data, precoCustom);
   const customDiffPercent = custoSessao > 0 ? ((precoCustom - custoSessao) / custoSessao * 100) : 0;
 
   // Chart data — includes receita, custo (constant line), and lucro

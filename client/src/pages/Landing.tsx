@@ -15,7 +15,6 @@ import {
   TrendingUp,
   BarChart3,
   FileText,
-  Shield,
   Smartphone,
   CheckCircle2,
   Share2,

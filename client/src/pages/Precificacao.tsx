@@ -43,7 +43,6 @@ import CurrencyInput from '@/components/CurrencyInput';
 import { useData } from '@/contexts/DataContext';
 import { useMetrics } from '@/lib/useMetrics';
 import {
-  calcularCustoTotalPorSessao,
   calcularPrecoEstrategico,
   calcularMargemDoPreco,
   sugerirSessoesPorDia,
@@ -107,6 +106,15 @@ const DURACOES = [
   { value: 60, label: '60 min' },
 ];
 
+function readSimulationPriceFromUrl(): number | null {
+  if (typeof window === 'undefined') return null;
+  const precoParam = new URLSearchParams(window.location.search).get('preco');
+  if (!precoParam) return null;
+  const preco = parseFloat(precoParam);
+  if (Number.isNaN(preco) || preco < 30 || preco > 9999) return null;
+  return preco;
+}
+
 export default function Precificacao() {
   const {
     data,
@@ -123,33 +131,19 @@ export default function Precificacao() {
   } = useData();
 
   const [activeMode, setActiveMode] = useState<'margem' | 'preco'>('margem');
-  const [fromSimulation, setFromSimulation] = useState(false);
-  const [simulationPrice, setSimulationPrice] = useState(0);
+  const simulationPriceFromUrl = readSimulationPriceFromUrl();
+  const [fromSimulation, setFromSimulation] = useState(simulationPriceFromUrl !== null);
+  const [simulationPrice] = useState(simulationPriceFromUrl ?? 0);
 
   const chartColors = useMemo(() => getChartColors(), []);
   const chartPalette = useMemo(() => getChartPalette(), []);
 
   const metrics = useMetrics(data);
 
-  // Read price from URL (coming from Simulação page)
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const precoParam = params.get('preco');
-    if (precoParam) {
-      const preco = parseFloat(precoParam);
-      if (!isNaN(preco) && preco >= 30 && preco <= 9999) {
-        setFromSimulation(true);
-        setSimulationPrice(preco);
-        window.history.replaceState({}, '', '/precificacao');
-      }
-    }
-  }, []);
-
-  const confirmSimulationPrice = useCallback(() => {
-    handlePrecoChange(simulationPrice);
-    setFromSimulation(false);
-    toast.success('Preço da simulação aplicado!');
-  }, [simulationPrice]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (simulationPriceFromUrl === null) return;
+    window.history.replaceState({}, '', '/precificacao');
+  }, [simulationPriceFromUrl]);
 
   const discardSimulationPrice = useCallback(() => {
     setFromSimulation(false);
@@ -176,6 +170,12 @@ export default function Precificacao() {
     const newMargem = calcularMargemDoPreco(data, preco);
     updateMargemLucro(Math.max(0, Math.min(newMargem, 0.80)));
   }, [data, isRegistered, updatePrecoDefinido, updateMargemLucro]);
+
+  const confirmSimulationPrice = useCallback(() => {
+    handlePrecoChange(simulationPrice);
+    setFromSimulation(false);
+    toast.success('Preço da simulação aplicado!');
+  }, [handlePrecoChange, simulationPrice]);
 
   const sessaoSugerida = sugerirSessoesPorDia(data.horasTrabalho, data.duracaoPadraoMinutos);
 
@@ -256,7 +256,7 @@ export default function Precificacao() {
                 if (!isRegistered) { toast.error('Faça login para editar'); return; }
                 const regime = REGIMES_TRIBUTARIOS.find(r => r.value === v);
                 if (regime) {
-                  updateRegimeTributario(v, v === 'personalizado' ? data.impostoPercentual : regime.imposto);
+                  updateRegimeTributario(regime.value, regime.value === 'personalizado' ? data.impostoPercentual : regime.imposto);
                 }
               }}
               disabled={!isRegistered}

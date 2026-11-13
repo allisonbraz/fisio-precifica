@@ -18,7 +18,6 @@ import {
   Target,
   Briefcase,
   UserCircle,
-  ClipboardList,
   Users,
   LogIn,
   LogOut,
